@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "../../../lib/supabase";
+import { db } from "@/lib/supabase";
 
 export async function GET(req: NextRequest) {
   const shop = req.nextUrl.searchParams.get("shop");
@@ -18,33 +18,41 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const {
-    shop,
-    productId,
-    productTitle,
-    docType,
-    uploadTitle,
-    helperText,
-    errorMessage,
-  } = body;
+  try {
+    const body = await req.json();
+    const {
+      productId,
+      productTitle,
+      docType,
+      uploadTitle,
+      helperText,
+      errorMessage,
+    } = body;
 
-  const { data, error } = await db
-    .from("product_rules")
-    .insert({
-      id: crypto.randomUUID(),
-      shop,
-      product_id: productId,
-      product_title: productTitle,
-      doc_type: docType,
-      upload_title: uploadTitle,
-      helper_text: helperText,
-      error_message: errorMessage,
-    })
-    .select()
-    .single();
+    // Ambil shop dari session Supabase
+    // Untuk sekarang pakai shop dari body
+    const shop = body.shop ?? "testssaja.myshopify.com";
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+    const { data, error } = await db
+      .from("product_rules")
+      .insert({
+        id: crypto.randomUUID(),
+        shop,
+        product_id: productId,
+        product_title: productTitle,
+        doc_type: docType,
+        upload_title: uploadTitle,
+        helper_text: helperText,
+        error_message: errorMessage,
+        is_active: true,
+      })
+      .select()
+      .single();
+
+    if (error)
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(data);
+  } catch (err) {
+    return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
 }

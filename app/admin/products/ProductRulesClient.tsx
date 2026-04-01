@@ -31,17 +31,26 @@ export default function ProductRulesClient({ rules: initialRules }: Props) {
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
+      const shop =
+        new URLSearchParams(window.location.search).get("shop") ?? "";
+
       const res = await fetch("/api/product-rules", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, shop }),
       });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error ?? "Failed to save");
+      }
+
       const data = await res.json();
       setRules((prev) => [data, ...prev]);
       setModalOpen(false);
       setToast("Rule saved!");
-    } catch {
-      setToast("Failed to save.");
+    } catch (err) {
+      setToast(`Failed: ${err}`);
     } finally {
       setSaving(false);
     }
