@@ -6,11 +6,15 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: "/:path*",
+        source: "/(.*)",
         headers: [
           {
             key: "Content-Security-Policy",
             value: `frame-ancestors https://*.myshopify.com https://admin.shopify.com;`,
+          },
+          {
+            key: "X-Frame-Options",
+            value: "ALLOWALL",
           },
         ],
       },
