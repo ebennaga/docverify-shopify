@@ -1,25 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/supabase";
 
-export async function GET(req: NextRequest) {
-  const shop = req.nextUrl.searchParams.get("shop");
-  if (!shop)
-    return NextResponse.json({ error: "shop required" }, { status: 400 });
-
-  const { data, error } = await db
-    .from("product_rules")
-    .select("*")
-    .eq("shop", shop)
-    .order("created_at", { ascending: false });
-
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
-}
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    console.log("POST /api/product-rules body:", JSON.stringify(body));
+
     const {
       productId,
       productTitle,
@@ -28,10 +14,9 @@ export async function POST(req: NextRequest) {
       helperText,
       errorMessage,
     } = body;
-
-    // Ambil shop dari session Supabase
-    // Untuk sekarang pakai shop dari body
     const shop = body.shop ?? "testssaja.myshopify.com";
+
+    console.log("Inserting with shop:", shop);
 
     const { data, error } = await db
       .from("product_rules")
@@ -49,10 +34,18 @@ export async function POST(req: NextRequest) {
       .select()
       .single();
 
-    if (error)
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    console.log("Insert result:", JSON.stringify({ data, error }));
+
+    if (error) {
+      console.error("Supabase error:", error);
+      return NextResponse.json(
+        { error: error.message, details: error },
+        { status: 500 },
+      );
+    }
     return NextResponse.json(data);
   } catch (err) {
+    console.error("Unexpected error:", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }
