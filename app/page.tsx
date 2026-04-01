@@ -3,14 +3,23 @@ import { redirect } from "next/navigation";
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ shop?: string; host?: string }>;
+  searchParams: Promise<{
+    shop?: string;
+    host?: string;
+    hmac?: string;
+    timestamp?: string;
+  }>;
 }) {
   const params = await searchParams;
-  const shop = params.shop;
-  const host = params.host;
+  const { shop, host, hmac, timestamp } = params;
+
+  // Shopify load app dengan parameter ini
+  if (shop && hmac) {
+    redirect(`/admin?shop=${shop}&host=${host ?? ""}`);
+  }
 
   if (shop) {
-    redirect(`/admin?shop=${shop}&host=${host ?? ""}`);
+    redirect(`/api/auth?shop=${shop}&host=${host ?? ""}`);
   }
 
   redirect("/admin");
