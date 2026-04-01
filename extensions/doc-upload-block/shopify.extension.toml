@@ -1,0 +1,31 @@
+api_version = "2026-01"
+
+[[extensions]]
+type = "ui_extension"
+name = "Doc Upload Block"
+handle = "doc-upload-block"
+
+  [[extensions.targeting]]
+  module = "./src/Checkout.jsx"
+  target = "purchase.checkout.block.render"
+
+[extensions.settings]
+  [[extensions.settings.fields]]
+  key = "upload_title"
+  type = "single_line_text_field"
+  name = "Upload prompt title"
+
+  [[extensions.settings.fields]]
+  key = "helper_text"
+  type = "single_line_text_field"
+  name = "Helper text"
+
+  [[extensions.settings.fields]]
+  key = "error_message"
+  type = "single_line_text_field"
+  name = "Error message"
+
+  [[extensions.settings.fields]]
+  key = "button_label"
+  type = "single_line_text_field"
+  name = "Button label"
