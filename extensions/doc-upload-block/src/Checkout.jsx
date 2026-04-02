@@ -124,14 +124,14 @@ function DocUploadBlock() {
         <BlockStack spacing="tight">
           <DropZone
             onDrop={handleDrop}
-            accept={[
-              "application/pdf",
-              "image/jpeg",
-              "image/png",
-              "image/webp",
-            ]}
-            allowMultiple={false}
-            disabled={uploading}
+            // accept={[
+            //   "application/pdf",
+            //   "image/jpeg",
+            //   "image/png",
+            //   "image/webp",
+            // ]}
+            // allowMultiple={false}
+            // disabled={uploading}
           >
             <Text>
               {uploading ? "Uploading..." : "Drop file here or click to upload"}
