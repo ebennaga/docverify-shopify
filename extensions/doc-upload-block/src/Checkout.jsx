@@ -6,8 +6,9 @@ import {
   useAttributes,
   BlockStack,
   Text,
+  Button,
   Banner,
-  DropZone,
+  TextField,
 } from "@shopify/ui-extensions-react/checkout";
 import { useState, useCallback, useEffect } from "react";
 
@@ -21,15 +22,17 @@ function DocUploadBlock() {
   const applyAttributeChange = useApplyAttributeChange();
   const attributes = useAttributes();
 
-  const [uploading, setUploading] = useState(false);
   const [uploaded, setUploaded] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState("");
+  const [docUrl, setDocUrl] = useState("");
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const uploadTitle =
     settings.upload_title || "Please upload your document to proceed";
   const helperText =
-    settings.helper_text || "Your file is securely stored with your order.";
+    settings.helper_text ||
+    "Paste your document URL or upload via the link below.";
 
   useEffect(() => {
     const existing = attributes.find((a) => a.key === "_doc_uploaded");
@@ -40,72 +43,41 @@ function DocUploadBlock() {
     }
   }, [attributes]);
 
-  const handleDrop = useCallback(
-    async ({ files }) => {
-      if (!files || files.length === 0) return;
-      const file = files[0];
+  const handleSaveUrl = useCallback(async () => {
+    if (!docUrl.trim()) {
+      setError("Please enter a document URL.");
+      return;
+    }
 
-      if (file.size > 10 * 1024 * 1024) {
-        setError("File too large. Maximum size is 10MB.");
-        return;
-      }
+    setSaving(true);
+    try {
+      await applyAttributeChange({
+        key: "_doc_uploaded",
+        type: "updateAttribute",
+        value: "true",
+      });
+      await applyAttributeChange({
+        key: "_doc_file_path",
+        type: "updateAttribute",
+        value: docUrl,
+      });
+      await applyAttributeChange({
+        key: "_doc_file_name",
+        type: "updateAttribute",
+        value: docUrl,
+      });
 
-      setError("");
-      setUploading(true);
+      setUploaded(true);
+      setUploadedFileName(docUrl);
+    } catch {
+      setError("Failed to save. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  }, [docUrl, applyAttributeChange]);
 
-      try {
-        const base64 = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result.split(",")[1]);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-
-        const productIds = cartLines.map((line) => line.merchandise.product.id);
-
-        const res = await fetch(
-          "https://docverify-shopify.vercel.app/api/upload",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              fileName: file.name,
-              fileType: file.type,
-              fileData: base64,
-              productIds,
-            }),
-          },
-        );
-
-        if (!res.ok) throw new Error("Upload failed");
-        const data = await res.json();
-
-        await applyAttributeChange({
-          key: "_doc_uploaded",
-          type: "updateAttribute",
-          value: "true",
-        });
-        await applyAttributeChange({
-          key: "_doc_file_path",
-          type: "updateAttribute",
-          value: data.filePath ?? "",
-        });
-        await applyAttributeChange({
-          key: "_doc_file_name",
-          type: "updateAttribute",
-          value: file.name,
-        });
-
-        setUploaded(true);
-        setUploadedFileName(file.name);
-      } catch {
-        setError("Upload failed. Please try again.");
-      } finally {
-        setUploading(false);
-      }
-    },
-    [applyAttributeChange, cartLines],
-  );
+  // Generate upload page URL
+  const uploadPageUrl = `https://docverify-shopify.vercel.app/upload?callback=checkout`;
 
   return (
     <BlockStack spacing="base">
@@ -118,25 +90,25 @@ function DocUploadBlock() {
 
       {uploaded ? (
         <Banner status="success">
-          <Text emphasis="bold">Document uploaded: {uploadedFileName}</Text>
+          <Text emphasis="bold">Document submitted successfully!</Text>
         </Banner>
       ) : (
         <BlockStack spacing="tight">
-          <DropZone
-            onDrop={handleDrop}
-            // accept={[
-            //   "application/pdf",
-            //   "image/jpeg",
-            //   "image/png",
-            //   "image/webp",
-            // ]}
-            // allowMultiple={false}
-            // disabled={uploading}
-          >
-            <Text>
-              {uploading ? "Uploading..." : "Drop file here or click to upload"}
-            </Text>
-          </DropZone>
+          <Button kind="secondary" to={uploadPageUrl} target="_blank">
+            Upload document on secure page
+          </Button>
+          <Text size="small" appearance="subdued">
+            After uploading, paste the confirmation code below:
+          </Text>
+          <TextField
+            label="Confirmation code"
+            value={docUrl}
+            onChange={setDocUrl}
+            placeholder="Paste code here after uploading"
+          />
+          <Button kind="primary" onPress={handleSaveUrl} loading={saving}>
+            Confirm document
+          </Button>
           {error && (
             <Banner status="critical">
               <Text>{error}</Text>
