@@ -8,7 +8,6 @@ import {
   Text,
   Button,
   Banner,
-  TextField,
 } from "@shopify/ui-extensions-react/checkout";
 import { useState, useCallback, useEffect } from "react";
 
@@ -24,16 +23,15 @@ function DocUploadBlock() {
 
   const [uploaded, setUploaded] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState("");
-  const [docUrl, setDocUrl] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [confirming, setConfirming] = useState(false);
 
   const uploadTitle =
     settings.upload_title || "Please upload your document to proceed";
   const helperText =
-    settings.helper_text ||
-    "Paste your document URL or upload via the link below.";
+    settings.helper_text || "Your file is securely stored with your order.";
+  const buttonLabel = settings.button_label || "Upload document";
 
+  // Cek apakah sudah upload
   useEffect(() => {
     const existing = attributes.find((a) => a.key === "_doc_uploaded");
     if (existing?.value === "true") {
@@ -43,41 +41,60 @@ function DocUploadBlock() {
     }
   }, [attributes]);
 
-  const handleSaveUrl = useCallback(async () => {
-    if (!docUrl.trim()) {
-      setError("Please enter a document URL.");
-      return;
+  // Cek confirmation code dari URL (setelah redirect balik dari upload page)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const docCode = params.get("doc_code");
+    const docName = params.get("doc_name");
+
+    if (docCode && !uploaded) {
+      handleAutoConfirm(docCode, docName ?? docCode);
     }
+  }, []);
 
-    setSaving(true);
-    try {
-      await applyAttributeChange({
-        key: "_doc_uploaded",
-        type: "updateAttribute",
-        value: "true",
-      });
-      await applyAttributeChange({
-        key: "_doc_file_path",
-        type: "updateAttribute",
-        value: docUrl,
-      });
-      await applyAttributeChange({
-        key: "_doc_file_name",
-        type: "updateAttribute",
-        value: docUrl,
-      });
+  const handleAutoConfirm = useCallback(
+    async (filePath, fileName) => {
+      setConfirming(true);
+      try {
+        await applyAttributeChange({
+          key: "_doc_uploaded",
+          type: "updateAttribute",
+          value: "true",
+        });
+        await applyAttributeChange({
+          key: "_doc_file_path",
+          type: "updateAttribute",
+          value: filePath,
+        });
+        await applyAttributeChange({
+          key: "_doc_file_name",
+          type: "updateAttribute",
+          value: fileName,
+        });
+        setUploaded(true);
+        setUploadedFileName(fileName);
+      } catch (err) {
+        console.error("Auto confirm failed:", err);
+      } finally {
+        setConfirming(false);
+      }
+    },
+    [applyAttributeChange],
+  );
 
-      setUploaded(true);
-      setUploadedFileName(docUrl);
-    } catch {
-      setError("Failed to save. Please try again.");
-    } finally {
-      setSaving(false);
-    }
-  }, [docUrl, applyAttributeChange]);
+  const handleUploadPress = useCallback(() => {
+    const currentUrl = window.location.href;
+    const uploadUrl = `https://docverify-shopify.vercel.app/upload?return=${encodeURIComponent(currentUrl)}`;
+    window.location.href = uploadUrl;
+  }, []);
 
-  // Generate upload page URL
-  const uploadPageUrl = `https://docverify-shopify.vercel.app/upload?callback=checkout`;
+  if (confirming) {
+    return (
+      <BlockStack spacing="base">
+        <Text>Confirming your document...</Text>
+      </BlockStack>
+    );
+  }
 
   return (
     <BlockStack spacing="base">
@@ -90,31 +107,17 @@ function DocUploadBlock() {
 
       {uploaded ? (
         <Banner status="success">
-          <Text emphasis="bold">Document submitted successfully!</Text>
+          <BlockStack spacing="tight">
+            <Text emphasis="bold">Document submitted!</Text>
+            <Text size="small" appearance="subdued">
+              {uploadedFileName.split("/").pop()}
+            </Text>
+          </BlockStack>
         </Banner>
       ) : (
-        <BlockStack spacing="tight">
-          <Button kind="secondary" to={uploadPageUrl} target="_blank">
-            Upload document on secure page
-          </Button>
-          <Text size="small" appearance="subdued">
-            After uploading, paste the confirmation code below:
-          </Text>
-          <TextField
-            label="Confirmation code"
-            value={docUrl}
-            onChange={setDocUrl}
-            placeholder="Paste code here after uploading"
-          />
-          <Button kind="primary" onPress={handleSaveUrl} loading={saving}>
-            Confirm document
-          </Button>
-          {error && (
-            <Banner status="critical">
-              <Text>{error}</Text>
-            </Banner>
-          )}
-        </BlockStack>
+        <Button kind="secondary" onPress={handleUploadPress}>
+          {buttonLabel}
+        </Button>
       )}
     </BlockStack>
   );
