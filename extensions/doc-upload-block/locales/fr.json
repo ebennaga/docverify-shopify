@@ -1,6 +1,7 @@
 {
-  "welcome": "Bienvenue dans l'extension {{target}}!",
-  "iWouldLikeAFreeGiftWithMyOrder": "Je souhaite recevoir un cadeau gratuit avec ma commande",
-  "addAFreeGiftToMyOrder": "Ajouter un cadeau gratuit à ma commande",
-  "metafieldChangesAreNotSupported": "Les modifications de métachamps de panier ne sont pas prises en charge dans cette commande"
+  "welcome": "Bienvenue",
+  "upload_title": "Veuillez télécharger votre document pour continuer",
+  "helper_text": "Votre fichier est stocké en toute sécurité avec votre commande.",
+  "error_message": "Ce produit nécessite un document valide pour être acheté.",
+  "button_label": "Télécharger le document"
 }
