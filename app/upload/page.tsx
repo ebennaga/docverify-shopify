@@ -2,11 +2,7 @@
 
 import { useState, useRef } from "react";
 
-export default function UploadPage({
-  searchParams,
-}: {
-  searchParams: { callback?: string };
-}) {
+export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [uploaded, setUploaded] = useState(false);
   const [code, setCode] = useState("");
@@ -47,10 +43,9 @@ export default function UploadPage({
       if (!res.ok) throw new Error("Upload failed");
 
       const data = await res.json();
-      const confirmCode = data.filePath;
-      setCode(confirmCode);
+      setCode(data.filePath);
       setUploaded(true);
-    } catch {
+    } catch (err) {
       setError("Upload failed. Please try again.");
     } finally {
       setUploading(false);
