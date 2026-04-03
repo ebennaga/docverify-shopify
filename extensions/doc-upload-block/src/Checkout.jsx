@@ -95,7 +95,7 @@ function DocUploadBlock() {
         <BlockStack spacing="tight">
           <Button
             kind="secondary"
-            to={`https://docverify-shopify.vercel.app/upload?return=${encodeURIComponent(window.location.href)}`}
+            to="https://docverify-shopify.vercel.app/upload"
             target="_blank"
           >
             {buttonLabel}
