@@ -39,6 +39,12 @@ export default async function AdminPage({
             >
               Product Rules
             </a>
+            <a
+              href={`/admin/submissions?shop=${params.shop}`}
+              style={{ color: "#3b82f6" }}
+            >
+              Document Submissions
+            </a>
           </nav>
         </div>
       </body>
