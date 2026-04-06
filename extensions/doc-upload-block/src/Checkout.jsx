@@ -50,15 +50,6 @@ function DocUploadBlock() {
     }
     setSaving(true);
     try {
-      await fetch("https://docverify-shopify.vercel.app/api/upload-confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          filePath: docCode,
-          shop: myshopifyDomain,
-        }),
-      });
-
       await applyAttributeChange({
         key: "_doc_uploaded",
         type: "updateAttribute",
@@ -82,7 +73,7 @@ function DocUploadBlock() {
     } finally {
       setSaving(false);
     }
-  }, [docCode, applyAttributeChange, myshopifyDomain]);
+  }, [docCode, applyAttributeChange]);
 
   return (
     <BlockStack spacing="base">
@@ -106,7 +97,7 @@ function DocUploadBlock() {
         <BlockStack spacing="tight">
           <Button
             kind="secondary"
-            to="https://docverify-shopify.vercel.app/upload"
+            to={`https://docverify-shopify.vercel.app/upload?shop=${myshopifyDomain}`}
             target="_blank"
           >
             {buttonLabel}

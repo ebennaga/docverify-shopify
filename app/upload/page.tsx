@@ -40,6 +40,9 @@ function UploadForm() {
           fileType: file.type,
           fileData: base64,
           productIds: [],
+          shop:
+            new URLSearchParams(window.location.search).get("shop") ??
+            "unknown",
         }),
       });
 

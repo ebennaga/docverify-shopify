@@ -52,12 +52,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Simpan ke doc_submissions
-    const shopValue = shop ?? "testssaja.myshopify.com";
+    const shopValue = shop ?? "unknown";
     const { error: dbError } = await db.from("doc_submissions").insert({
       id: crypto.randomUUID(),
       shop: shopValue,
-      order_id: orderId ?? "pending",
-      order_name: orderId ?? "pending",
+      order_id: "pending",
+      order_name: "pending",
       customer_email: customerEmail ?? null,
       product_id: productIds?.[0] ?? "unknown",
       file_path: filePath,
