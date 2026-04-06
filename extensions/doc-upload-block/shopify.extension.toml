@@ -1,6 +1,9 @@
 api_version = "2025-07"
 
 [[extensions]]
+
+uid = "34aa0729-7a1c-cec1-b125-fbb36ce55734a495d0bf"
+
 type = "ui_extension"
 name = "Doc Upload Block"
 handle = "doc-upload-block"
@@ -9,9 +12,8 @@ handle = "doc-upload-block"
   module = "./src/Checkout.jsx"
   target = "purchase.checkout.block.render"
 
-  [[extensions.targeting]]
-  module = "./src/CheckoutValidator.jsx"
-  target = "purchase.checkout.delivery-address.render-before"
+[extensions.capabilities]
+  block_progress = true
 
 [extensions.settings]
   [[extensions.settings.fields]]
