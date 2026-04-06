@@ -43,18 +43,21 @@ function DocUploadBlock() {
     .split(",")
     .map((id) => id.trim())
     .filter(Boolean);
-
-  // Cek apakah ada produk restricted di cart
-  const hasRestricted = cartLines.some((line) => {
-    const productId = line.merchandise.product.id;
-    // Extract numeric ID dari GID
-    const numericId = productId.startsWith("gid://")
-      ? productId.split("/").pop()
-      : productId;
-    return (
-      restrictedIds.includes(numericId) || restrictedIds.includes(productId)
-    );
-  });
+  // Kalau tidak ada settings, tampilkan untuk semua produk
+  // Kalau ada settings, filter berdasarkan product ID
+  const hasRestricted =
+    restrictedIds.length === 0
+      ? true // tampilkan untuk semua kalau settings kosong
+      : cartLines.some((line) => {
+          const productId = line.merchandise.product.id;
+          const numericId = productId.startsWith("gid://")
+            ? productId.split("/").pop()
+            : productId;
+          return (
+            restrictedIds.includes(numericId) ||
+            restrictedIds.includes(productId)
+          );
+        });
 
   useEffect(() => {
     const existing = attributes.find((a) => a.key === "_doc_uploaded");
