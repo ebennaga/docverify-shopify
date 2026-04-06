@@ -1,8 +1,10 @@
 import {
   reactExtension,
   useSettings,
+  useCartLines,
   useApplyAttributeChange,
   useAttributes,
+  useShop,
   BlockStack,
   Text,
   Button,
@@ -19,6 +21,7 @@ function DocUploadBlock() {
   const settings = useSettings();
   const applyAttributeChange = useApplyAttributeChange();
   const attributes = useAttributes();
+  const { myshopifyDomain } = useShop();
 
   const [uploaded, setUploaded] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState("");
@@ -41,6 +44,9 @@ function DocUploadBlock() {
     }
   }, [attributes]);
 
+  // Block checkout kalau belum upload
+  const canBlockProgress = useExtensionCapability("block_progress");
+
   const handleConfirm = useCallback(async () => {
     if (!docCode.trim()) {
       setError("Please enter the confirmation code.");
@@ -48,6 +54,16 @@ function DocUploadBlock() {
     }
     setSaving(true);
     try {
+      // Simpan ke database via API
+      await fetch("https://docverify-shopify.vercel.app/api/upload-confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filePath: docCode,
+          shop: myshopifyDomain,
+        }),
+      });
+
       await applyAttributeChange({
         key: "_doc_uploaded",
         type: "updateAttribute",
@@ -71,7 +87,7 @@ function DocUploadBlock() {
     } finally {
       setSaving(false);
     }
-  }, [docCode, applyAttributeChange]);
+  }, [docCode, applyAttributeChange, myshopifyDomain]);
 
   return (
     <BlockStack spacing="base">
