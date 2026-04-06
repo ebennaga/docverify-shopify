@@ -55,7 +55,7 @@ function DocUploadBlock() {
   // Cek apakah ada produk restricted di cart
   const hasRestricted =
     restrictedIds.length === 0
-      ? true // tampilkan semua kalau belum dikonfigurasi
+      ? false // sembunyikan kalau metafield belum dikonfigurasi
       : cartLines.some((line) => {
           const productId = line.merchandise.product.id;
           const numericId = productId.startsWith("gid://")
