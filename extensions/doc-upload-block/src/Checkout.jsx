@@ -4,6 +4,7 @@ import {
   useApplyAttributeChange,
   useAttributes,
   useShop,
+  useCartLines,
   useBuyerJourneyIntercept,
   BlockStack,
   Text,
@@ -22,6 +23,7 @@ function DocUploadBlock() {
   const applyAttributeChange = useApplyAttributeChange();
   const attributes = useAttributes();
   const { myshopifyDomain } = useShop();
+  const cartLines = useCartLines();
 
   const [uploaded, setUploaded] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState("");
@@ -35,6 +37,25 @@ function DocUploadBlock() {
     settings.helper_text || "Your file is securely stored with your order.";
   const buttonLabel = settings.button_label || "Upload document";
 
+  // Ambil restricted product IDs dari settings
+  const restrictedIdsRaw = settings.restricted_product_ids || "";
+  const restrictedIds = restrictedIdsRaw
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+
+  // Cek apakah ada produk restricted di cart
+  const hasRestricted = cartLines.some((line) => {
+    const productId = line.merchandise.product.id;
+    // Extract numeric ID dari GID
+    const numericId = productId.startsWith("gid://")
+      ? productId.split("/").pop()
+      : productId;
+    return (
+      restrictedIds.includes(numericId) || restrictedIds.includes(productId)
+    );
+  });
+
   useEffect(() => {
     const existing = attributes.find((a) => a.key === "_doc_uploaded");
     if (existing?.value === "true") {
@@ -44,9 +65,9 @@ function DocUploadBlock() {
     }
   }, [attributes]);
 
-  // Block checkout kalau belum upload
+  // Block checkout hanya kalau ada produk restricted dan belum upload
   useBuyerJourneyIntercept(({ canBlockProgress }) => {
-    if (canBlockProgress && !uploaded) {
+    if (canBlockProgress && hasRestricted && !uploaded) {
       return {
         behavior: "block",
         reason: "Document upload required",
@@ -61,7 +82,10 @@ function DocUploadBlock() {
     return { behavior: "allow" };
   });
 
-  const handleConfirm = useCallback(async () => {
+  // Sembunyikan kalau tidak ada produk restricted
+  if (!hasRestricted) return null;
+
+  const handleConfirm = async () => {
     if (!docCode.trim()) {
       setError("Please enter the confirmation code.");
       return;
@@ -91,7 +115,7 @@ function DocUploadBlock() {
     } finally {
       setSaving(false);
     }
-  }, [docCode, applyAttributeChange]);
+  };
 
   return (
     <BlockStack spacing="base">
