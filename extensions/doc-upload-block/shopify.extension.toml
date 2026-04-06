@@ -1,6 +1,9 @@
 api_version = "2025-07"
 
 [[extensions]]
+
+uid = "34aa0729-7a1c-cec1-b125-fbb36ce55734a495d0bf"
+
 type = "ui_extension"
 name = "Doc Upload Block"
 handle = "doc-upload-block"
