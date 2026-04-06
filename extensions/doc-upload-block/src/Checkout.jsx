@@ -4,6 +4,7 @@ import {
   useApplyAttributeChange,
   useAttributes,
   useShop,
+  useCartLines,
   useBuyerJourneyIntercept,
   BlockStack,
   Text,
@@ -22,12 +23,15 @@ function DocUploadBlock() {
   const applyAttributeChange = useApplyAttributeChange();
   const attributes = useAttributes();
   const { myshopifyDomain } = useShop();
+  const cartLines = useCartLines();
 
   const [uploaded, setUploaded] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState("");
   const [docCode, setDocCode] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [hasRestricted, setHasRestricted] = useState(false);
+  const [checking, setChecking] = useState(true);
 
   const uploadTitle =
     settings.upload_title || "Please upload your document to proceed";
@@ -35,6 +39,7 @@ function DocUploadBlock() {
     settings.helper_text || "Your file is securely stored with your order.";
   const buttonLabel = settings.button_label || "Upload document";
 
+  // Cek apakah sudah upload
   useEffect(() => {
     const existing = attributes.find((a) => a.key === "_doc_uploaded");
     if (existing?.value === "true") {
@@ -44,23 +49,65 @@ function DocUploadBlock() {
     }
   }, [attributes]);
 
-  // Block checkout kalau belum upload
+  // Cek apakah ada produk restricted di cart
+  useEffect(() => {
+    async function checkProducts() {
+      setChecking(true);
+      try {
+        const productIds = cartLines.map((line) => line.merchandise.product.id);
+
+        if (productIds.length === 0) {
+          setHasRestricted(false);
+          setChecking(false);
+          return;
+        }
+
+        const res = await fetch(
+          "https://docverify-shopify.vercel.app/api/check-products",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ productIds }),
+          },
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+          setHasRestricted(data.hasRestricted ?? false);
+        } else {
+          setHasRestricted(false);
+        }
+      } catch {
+        setHasRestricted(false);
+      } finally {
+        setChecking(false);
+      }
+    }
+
+    checkProducts();
+  }, [cartLines]);
+
+  // Block checkout hanya kalau ada produk restricted dan belum upload
   useBuyerJourneyIntercept(({ canBlockProgress }) => {
-    if (canBlockProgress && !uploaded) {
+    if (canBlockProgress && hasRestricted && !uploaded) {
       return {
         behavior: "block",
         reason: "Document upload required",
-        perform: (result) => {
-          if (result.behavior === "block") {
-            setError("Please upload your document before proceeding.");
-          }
-        },
+        errors: [
+          {
+            message: "Please upload your document before proceeding.",
+            target: "$.cart",
+          },
+        ],
       };
     }
     return { behavior: "allow" };
   });
 
-  const handleConfirm = useCallback(async () => {
+  // Kalau tidak ada produk restricted atau masih checking, jangan tampilkan
+  if (checking || !hasRestricted) return null;
+
+  const handleConfirm = async () => {
     if (!docCode.trim()) {
       setError("Please enter the confirmation code.");
       return;
@@ -90,7 +137,7 @@ function DocUploadBlock() {
     } finally {
       setSaving(false);
     }
-  }, [docCode, applyAttributeChange]);
+  };
 
   return (
     <BlockStack spacing="base">
