@@ -4,6 +4,7 @@ import {
   useApplyAttributeChange,
   useAttributes,
   useShop,
+  useBuyerJourneyIntercept,
   BlockStack,
   Text,
   Button,
@@ -42,6 +43,22 @@ function DocUploadBlock() {
       if (fileName) setUploadedFileName(fileName.value);
     }
   }, [attributes]);
+
+  // Block checkout kalau belum upload
+  useBuyerJourneyIntercept(({ canBlockProgress }) => {
+    if (canBlockProgress && !uploaded) {
+      return {
+        behavior: "block",
+        reason: "Document upload required",
+        perform: (result) => {
+          if (result.behavior === "block") {
+            setError("Please upload your document before proceeding.");
+          }
+        },
+      };
+    }
+    return { behavior: "allow" };
+  });
 
   const handleConfirm = useCallback(async () => {
     if (!docCode.trim()) {
