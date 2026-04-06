@@ -1,11 +1,87 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/supabase";
 
+async function syncRestrictedProducts(shop: string) {
+  try {
+    // Ambil semua active product rules
+    const { data: rules } = await db
+      .from("product_rules")
+      .select("product_id")
+      .eq("shop", shop)
+      .eq("is_active", true);
+
+    const productIds = (rules ?? [])
+      .map((r) => {
+        const pid = r.product_id ?? "";
+        if (pid.startsWith("gid://")) return pid.split("/").pop();
+        if (pid.includes("/products/")) return pid.split("/products/")[1];
+        return pid;
+      })
+      .filter(Boolean)
+      .join(",");
+
+    // Ambil access token
+    const { data: session } = await db
+      .from("Session")
+      .select("access_token")
+      .eq("shop", shop)
+      .single();
+
+    if (!session?.access_token) return;
+
+    // Update metafield di Shopify
+    await fetch(`https://${shop}/admin/api/2025-01/graphql.json`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": session.access_token,
+      },
+      body: JSON.stringify({
+        query: `
+          mutation SetMetafield($metafields: [MetafieldsSetInput!]!) {
+            metafieldsSet(metafields: $metafields) {
+              metafields { id key value }
+              userErrors { field message }
+            }
+          }
+        `,
+        variables: {
+          metafields: [
+            {
+              ownerId: `gid://shopify/Shop/1`,
+              namespace: "docverify",
+              key: "restricted_product_ids",
+              value: productIds,
+              type: "single_line_text_field",
+            },
+          ],
+        },
+      }),
+    });
+  } catch (err) {
+    console.error("Sync metafield error:", err);
+  }
+}
+
+export async function GET(req: NextRequest) {
+  const shop = req.nextUrl.searchParams.get("shop");
+  if (!shop)
+    return NextResponse.json({ error: "shop required" }, { status: 400 });
+
+  const { data, error } = await db
+    .from("product_rules")
+    .select("*")
+    .eq("shop", shop)
+    .order("created_at", { ascending: false });
+
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json(data);
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    console.log("POST /api/product-rules body:", JSON.stringify(body));
-
     const {
       productId,
       productTitle,
@@ -15,8 +91,6 @@ export async function POST(req: NextRequest) {
       errorMessage,
     } = body;
     const shop = body.shop ?? "testssaja.myshopify.com";
-
-    console.log("Inserting with shop:", shop);
 
     const { data, error } = await db
       .from("product_rules")
@@ -34,18 +108,14 @@ export async function POST(req: NextRequest) {
       .select()
       .single();
 
-    console.log("Insert result:", JSON.stringify({ data, error }));
+    if (error)
+      return NextResponse.json({ error: error.message }, { status: 500 });
 
-    if (error) {
-      console.error("Supabase error:", error);
-      return NextResponse.json(
-        { error: error.message, details: error },
-        { status: 500 },
-      );
-    }
+    // Sync metafield otomatis
+    await syncRestrictedProducts(shop);
+
     return NextResponse.json(data);
   } catch (err) {
-    console.error("Unexpected error:", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }

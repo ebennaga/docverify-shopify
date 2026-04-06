@@ -5,6 +5,7 @@ import {
   useAttributes,
   useShop,
   useCartLines,
+  useAppMetafields,
   useBuyerJourneyIntercept,
   BlockStack,
   Text,
@@ -25,6 +26,13 @@ function DocUploadBlock() {
   const { myshopifyDomain } = useShop();
   const cartLines = useCartLines();
 
+  // Baca metafield dari shop
+  const metafields = useAppMetafields({
+    type: "shop",
+    namespace: "docverify",
+    key: "restricted_product_ids",
+  });
+
   const [uploaded, setUploaded] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState("");
   const [docCode, setDocCode] = useState("");
@@ -37,17 +45,17 @@ function DocUploadBlock() {
     settings.helper_text || "Your file is securely stored with your order.";
   const buttonLabel = settings.button_label || "Upload document";
 
-  // Ambil restricted product IDs dari settings
-  const restrictedIdsRaw = settings.restricted_product_ids || "";
-  const restrictedIds = restrictedIdsRaw
+  // Ambil restricted IDs dari metafield
+  const metafieldValue = metafields?.[0]?.metafield?.value ?? "";
+  const restrictedIds = metafieldValue
     .split(",")
     .map((id) => id.trim())
     .filter(Boolean);
-  // Kalau tidak ada settings, tampilkan untuk semua produk
-  // Kalau ada settings, filter berdasarkan product ID
+
+  // Cek apakah ada produk restricted di cart
   const hasRestricted =
     restrictedIds.length === 0
-      ? true // tampilkan untuk semua kalau settings kosong
+      ? true // tampilkan semua kalau belum dikonfigurasi
       : cartLines.some((line) => {
           const productId = line.merchandise.product.id;
           const numericId = productId.startsWith("gid://")
@@ -68,7 +76,6 @@ function DocUploadBlock() {
     }
   }, [attributes]);
 
-  // Block checkout hanya kalau ada produk restricted dan belum upload
   useBuyerJourneyIntercept(({ canBlockProgress }) => {
     if (canBlockProgress && hasRestricted && !uploaded) {
       return {
@@ -85,7 +92,6 @@ function DocUploadBlock() {
     return { behavior: "allow" };
   });
 
-  // Sembunyikan kalau tidak ada produk restricted
   if (!hasRestricted) return null;
 
   const handleConfirm = async () => {

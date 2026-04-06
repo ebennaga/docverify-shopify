@@ -1,9 +1,6 @@
 api_version = "2025-07"
 
 [[extensions]]
-
-uid = "34aa0729-7a1c-cec1-b125-fbb36ce55734a495d0bf"
-
 type = "ui_extension"
 name = "Doc Upload Block"
 handle = "doc-upload-block"
@@ -14,6 +11,10 @@ handle = "doc-upload-block"
 
 [extensions.capabilities]
   block_progress = true
+
+[[extensions.metafields]]
+  namespace = "docverify"
+  key = "restricted_product_ids"
 
 [extensions.settings]
   [[extensions.settings.fields]]
@@ -35,8 +36,3 @@ handle = "doc-upload-block"
   key = "button_label"
   type = "single_line_text_field"
   name = "Button label"
-
-  [[extensions.settings.fields]]
-  key = "restricted_product_ids"
-  type = "single_line_text_field"
-  name = "Restricted product IDs (comma separated)"
