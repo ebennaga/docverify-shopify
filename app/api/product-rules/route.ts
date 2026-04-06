@@ -3,7 +3,6 @@ import { db } from "@/lib/supabase";
 
 async function syncRestrictedProducts(shop: string) {
   try {
-    // Ambil semua active product rules
     const { data: rules } = await db
       .from("product_rules")
       .select("product_id")
@@ -20,7 +19,6 @@ async function syncRestrictedProducts(shop: string) {
       .filter(Boolean)
       .join(",");
 
-    // Ambil access token
     const { data: session } = await db
       .from("Session")
       .select("access_token")
@@ -29,15 +27,34 @@ async function syncRestrictedProducts(shop: string) {
 
     if (!session?.access_token) return;
 
-    // Update metafield di Shopify
-    await fetch(`https://${shop}/admin/api/2025-01/graphql.json`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Shopify-Access-Token": session.access_token,
+    // Ambil Shop ID yang benar dulu
+    const shopRes = await fetch(
+      `https://${shop}/admin/api/2025-01/graphql.json`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": session.access_token,
+        },
+        body: JSON.stringify({ query: `{ shop { id } }` }),
       },
-      body: JSON.stringify({
-        query: `
+    );
+    const shopData = await shopRes.json();
+    const shopId = shopData?.data?.shop?.id;
+
+    if (!shopId) return;
+
+    // Update metafield dengan Shop ID yang benar
+    const metaRes = await fetch(
+      `https://${shop}/admin/api/2025-01/graphql.json`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": session.access_token,
+        },
+        body: JSON.stringify({
+          query: `
           mutation SetMetafield($metafields: [MetafieldsSetInput!]!) {
             metafieldsSet(metafields: $metafields) {
               metafields { id key value }
@@ -45,19 +62,23 @@ async function syncRestrictedProducts(shop: string) {
             }
           }
         `,
-        variables: {
-          metafields: [
-            {
-              ownerId: `gid://shopify/Shop/1`,
-              namespace: "docverify",
-              key: "restricted_product_ids",
-              value: productIds,
-              type: "single_line_text_field",
-            },
-          ],
-        },
-      }),
-    });
+          variables: {
+            metafields: [
+              {
+                ownerId: shopId,
+                namespace: "docverify",
+                key: "restricted_product_ids",
+                value: productIds,
+                type: "single_line_text_field",
+              },
+            ],
+          },
+        }),
+      },
+    );
+
+    const metaData = await metaRes.json();
+    console.log("Metafield sync result:", JSON.stringify(metaData));
   } catch (err) {
     console.error("Sync metafield error:", err);
   }
