@@ -7,8 +7,10 @@ function UploadForm() {
   const [uploading, setUploading] = useState(false);
   const [uploaded, setUploaded] = useState(false);
   const [code, setCode] = useState("");
+  const [fileName, setFileName] = useState("");
   const [error, setError] = useState("");
   const [email, setEmail] = useState("");
+  const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get("return") ?? "";
@@ -30,6 +32,7 @@ function UploadForm() {
 
     setUploading(true);
     setError("");
+    setFileName(file.name);
 
     try {
       const base64 = await new Promise<string>((resolve, reject) => {
@@ -58,13 +61,11 @@ function UploadForm() {
       });
 
       if (!res.ok) throw new Error("Upload failed");
-
       const data = await res.json();
 
       if (returnUrl) {
         const separator = returnUrl.includes("?") ? "&" : "?";
-        const redirectUrl = `${returnUrl}${separator}doc_code=${encodeURIComponent(data.filePath)}&doc_name=${encodeURIComponent(file.name)}`;
-        window.location.href = redirectUrl;
+        window.location.href = `${returnUrl}${separator}doc_code=${encodeURIComponent(data.filePath)}&doc_name=${encodeURIComponent(file.name)}`;
       } else {
         setCode(data.filePath);
         setUploaded(true);
@@ -76,152 +77,282 @@ function UploadForm() {
     }
   };
 
+  const handleCopy = () => {
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div
       style={{
-        maxWidth: "480px",
-        margin: "0 auto",
-        padding: "24px",
-        fontFamily: "sans-serif",
         minHeight: "100vh",
+        background: "#f9fafb",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "24px",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       }}
     >
-      <h1 style={{ fontSize: "24px", marginBottom: "8px" }}>Upload document</h1>
-      <p style={{ color: "#666", marginBottom: "32px", fontSize: "14px" }}>
-        Upload your prescription, age certificate, or confirmation letter.
-      </p>
-
-      {uploaded ? (
-        <div>
+      <div
+        style={{
+          background: "white",
+          borderRadius: "16px",
+          padding: "40px",
+          width: "100%",
+          maxWidth: "460px",
+          boxShadow: "0 4px 24px rgba(0,0,0,0.08)",
+        }}
+      >
+        {/* Logo/Header */}
+        <div style={{ textAlign: "center", marginBottom: "32px" }}>
           <div
             style={{
-              background: "#e6f4ea",
-              border: "1px solid #2e7d32",
-              borderRadius: "8px",
-              padding: "16px",
-              marginBottom: "16px",
+              width: "52px",
+              height: "52px",
+              background: "#000",
+              borderRadius: "14px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 16px",
+              fontSize: "24px",
             }}
           >
-            <p
-              style={{
-                color: "#2e7d32",
-                fontWeight: "bold",
-                marginBottom: "8px",
-              }}
-            >
-              Document uploaded successfully!
-            </p>
-            <p style={{ color: "#555", fontSize: "13px", marginBottom: "8px" }}>
-              Copy this confirmation code and paste it in checkout:
-            </p>
+            🔒
+          </div>
+          <h1
+            style={{
+              fontSize: "22px",
+              fontWeight: 700,
+              margin: 0,
+              color: "#111",
+            }}
+          >
+            Document Verification
+          </h1>
+          <p
+            style={{
+              color: "#6b7280",
+              marginTop: "8px",
+              fontSize: "14px",
+              lineHeight: 1.5,
+            }}
+          >
+            Please upload your document to proceed with your purchase.
+          </p>
+        </div>
+
+        {uploaded ? (
+          /* Success State */
+          <div>
             <div
               style={{
-                background: "white",
-                border: "1px solid #ddd",
-                borderRadius: "4px",
-                padding: "10px",
+                background: "#f0fdf4",
+                border: "1px solid #bbf7d0",
+                borderRadius: "12px",
+                padding: "20px",
+                marginBottom: "20px",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: "36px", marginBottom: "8px" }}>✅</div>
+              <p
+                style={{
+                  color: "#15803d",
+                  fontWeight: 600,
+                  margin: 0,
+                  fontSize: "16px",
+                }}
+              >
+                Upload successful!
+              </p>
+              <p
+                style={{ color: "#6b7280", fontSize: "13px", marginTop: "4px" }}
+              >
+                {fileName}
+              </p>
+            </div>
+
+            <p
+              style={{
+                fontSize: "14px",
+                color: "#374151",
+                marginBottom: "12px",
+                fontWeight: 500,
+              }}
+            >
+              Copy this code and paste it in checkout:
+            </p>
+
+            <div
+              style={{
+                background: "#f9fafb",
+                border: "1px solid #e5e7eb",
+                borderRadius: "8px",
+                padding: "12px 16px",
                 fontFamily: "monospace",
                 fontSize: "12px",
                 wordBreak: "break-all",
+                color: "#374151",
                 marginBottom: "12px",
+                lineHeight: 1.6,
               }}
             >
               {code}
             </div>
+
             <button
-              onClick={() => {
-                navigator.clipboard.writeText(code);
-                alert("Copied!");
-              }}
+              onClick={handleCopy}
               style={{
                 width: "100%",
-                padding: "12px",
-                background: "#185FA5",
+                padding: "14px",
+                background: copied ? "#059669" : "#000",
                 color: "white",
                 border: "none",
-                borderRadius: "8px",
-                fontSize: "14px",
+                borderRadius: "10px",
+                fontSize: "15px",
+                fontWeight: 600,
                 cursor: "pointer",
+                transition: "background 0.2s",
               }}
             >
-              Copy confirmation code
+              {copied ? "✓ Copied!" : "Copy confirmation code"}
             </button>
-          </div>
-        </div>
-      ) : (
-        <div>
-          {/* Email input */}
-          <div style={{ marginBottom: "16px" }}>
-            <label
+
+            <p
               style={{
-                display: "block",
-                fontSize: "13px",
-                fontWeight: 500,
-                marginBottom: "6px",
+                fontSize: "12px",
+                color: "#9ca3af",
+                textAlign: "center",
+                marginTop: "16px",
               }}
             >
-              Your email address
-            </label>
+              Return to checkout and paste this code to continue.
+            </p>
+          </div>
+        ) : (
+          /* Upload Form */
+          <div>
+            {/* Email */}
+            <div style={{ marginBottom: "20px" }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  marginBottom: "8px",
+                  color: "#374151",
+                }}
+              >
+                Email address
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                style={{
+                  width: "100%",
+                  padding: "12px 14px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "10px",
+                  fontSize: "14px",
+                  boxSizing: "border-box",
+                  outline: "none",
+                  color: "#111",
+                }}
+              />
+              <p
+                style={{ fontSize: "12px", color: "#9ca3af", marginTop: "6px" }}
+              >
+                We'll notify you when your document is reviewed.
+              </p>
+            </div>
+
+            {/* Upload Button */}
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.webp"
+              onChange={handleUpload}
+              style={{ display: "none" }}
+            />
+
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
               style={{
                 width: "100%",
-                padding: "12px",
-                border: "1px solid #d1d5db",
-                borderRadius: "8px",
-                fontSize: "14px",
-                boxSizing: "border-box",
+                padding: "14px",
+                background: uploading ? "#9ca3af" : "#000",
+                color: "white",
+                border: "none",
+                borderRadius: "10px",
+                fontSize: "15px",
+                fontWeight: 600,
+                cursor: uploading ? "not-allowed" : "pointer",
+                marginBottom: "12px",
               }}
-            />
-            <p style={{ fontSize: "12px", color: "#999", marginTop: "4px" }}>
-              We'll notify you when your document is reviewed.
-            </p>
-          </div>
+            >
+              {uploading ? (
+                <span>⏳ Uploading...</span>
+              ) : (
+                <span>📎 Select file to upload</span>
+              )}
+            </button>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.jpg,.jpeg,.png,.webp"
-            onChange={handleUpload}
-            style={{ display: "none" }}
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            style={{
-              width: "100%",
-              padding: "16px",
-              background: uploading ? "#ccc" : "#000",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              fontSize: "16px",
-              cursor: uploading ? "not-allowed" : "pointer",
-              marginBottom: "12px",
-            }}
-          >
-            {uploading ? "Uploading..." : "Select file to upload"}
-          </button>
-          <p style={{ fontSize: "12px", color: "#999", textAlign: "center" }}>
-            PDF, JPG, PNG, WebP — max 10MB
-          </p>
-          {error && (
-            <p style={{ color: "red", marginTop: "12px", fontSize: "14px" }}>
-              {error}
+            <p
+              style={{
+                fontSize: "12px",
+                color: "#9ca3af",
+                textAlign: "center",
+              }}
+            >
+              PDF, JPG, PNG, WebP — max 10MB
             </p>
-          )}
-        </div>
-      )}
+
+            {error && (
+              <div
+                style={{
+                  marginTop: "12px",
+                  padding: "12px 14px",
+                  background: "#fef2f2",
+                  border: "1px solid #fecaca",
+                  borderRadius: "8px",
+                  color: "#b91c1c",
+                  fontSize: "14px",
+                }}
+              >
+                ⚠️ {error}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
 export default function UploadPage() {
   return (
-    <Suspense fallback={<div style={{ padding: "24px" }}>Loading...</div>}>
+    <Suspense
+      fallback={
+        <div
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "sans-serif",
+            color: "#9ca3af",
+          }}
+        >
+          Loading...
+        </div>
+      }
+    >
       <UploadForm />
     </Suspense>
   );
