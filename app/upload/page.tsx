@@ -8,6 +8,7 @@ function UploadForm() {
   const [uploaded, setUploaded] = useState(false);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
+  const [email, setEmail] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get("return") ?? "";
@@ -15,6 +16,12 @@ function UploadForm() {
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!email || !email.includes("@")) {
+      setError("Please enter your email address first.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
 
     if (file.size > 10 * 1024 * 1024) {
       setError("File too large. Maximum 10MB.");
@@ -46,8 +53,7 @@ function UploadForm() {
           shop:
             new URLSearchParams(window.location.search).get("shop") ??
             "unknown",
-          customerEmail:
-            new URLSearchParams(window.location.search).get("email") ?? null,
+          customerEmail: email,
         }),
       });
 
@@ -144,6 +150,37 @@ function UploadForm() {
         </div>
       ) : (
         <div>
+          {/* Email input */}
+          <div style={{ marginBottom: "16px" }}>
+            <label
+              style={{
+                display: "block",
+                fontSize: "13px",
+                fontWeight: 500,
+                marginBottom: "6px",
+              }}
+            >
+              Your email address
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              style={{
+                width: "100%",
+                padding: "12px",
+                border: "1px solid #d1d5db",
+                borderRadius: "8px",
+                fontSize: "14px",
+                boxSizing: "border-box",
+              }}
+            />
+            <p style={{ fontSize: "12px", color: "#999", marginTop: "4px" }}>
+              We'll notify you when your document is reviewed.
+            </p>
+          </div>
+
           <input
             ref={fileInputRef}
             type="file"

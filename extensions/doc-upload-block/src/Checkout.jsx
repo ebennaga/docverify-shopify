@@ -7,14 +7,13 @@ import {
   useCartLines,
   useAppMetafields,
   useBuyerJourneyIntercept,
-  useEmail,
   BlockStack,
   Text,
   Button,
   Banner,
   TextField,
 } from "@shopify/ui-extensions-react/checkout";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 export default reactExtension("purchase.checkout.block.render", () => (
   <DocUploadBlock />
@@ -26,7 +25,6 @@ function DocUploadBlock() {
   const attributes = useAttributes();
   const { myshopifyDomain } = useShop();
   const cartLines = useCartLines();
-  const email = useEmail();
 
   const metafields = useAppMetafields({
     type: "shop",
@@ -65,19 +63,6 @@ function DocUploadBlock() {
             restrictedIds.includes(productId)
           );
         });
-
-  // Ambil product IDs yang restricted di cart
-  const restrictedProductIds = cartLines
-    .filter((line) => {
-      const productId = line.merchandise.product.id;
-      const numericId = productId.startsWith("gid://")
-        ? productId.split("/").pop()
-        : productId;
-      return (
-        restrictedIds.includes(numericId) || restrictedIds.includes(productId)
-      );
-    })
-    .map((line) => line.merchandise.product.id);
 
   useEffect(() => {
     const existing = attributes.find((a) => a.key === "_doc_uploaded");
@@ -138,16 +123,7 @@ function DocUploadBlock() {
     }
   };
 
-  // Build upload URL dengan customer email
-  const customerEmail = email ?? "";
-  const uploadParams = new URLSearchParams({
-    shop: myshopifyDomain,
-    ...(customerEmail && { email: customerEmail }),
-    ...(restrictedProductIds.length > 0 && {
-      productIds: restrictedProductIds.join(","),
-    }),
-  });
-  const uploadUrl = `https://docverify-shopify.vercel.app/upload?${uploadParams.toString()}`;
+  const uploadUrl = `https://docverify-shopify.vercel.app/upload?shop=${myshopifyDomain}`;
 
   return (
     <BlockStack spacing="base">

@@ -2,15 +2,22 @@
 
 client_id = "241c687916ef7872cf252130bbe2d80a"
 name = "docverify"
-application_url = "https://shopify.dev/apps/default-app-home"
+application_url = "https://docverify-shopify.vercel.app"
 embedded = true
 
+[build]
+automatically_update_urls_on_dev = true
+dev_store_url = "testssaja.myshopify.com"
+
 [webhooks]
-api_version = "2026-04"
+api_version = "2026-01"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "read_files,read_metaobjects,read_orders,read_products,write_files,write_metaobjects,write_orders,write_products"
 
 [auth]
-redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
+redirect_urls = [
+  "https://docverify-shopify.vercel.app/api/auth",
+  "https://docverify-shopify.vercel.app/api/auth/callback"
+]
