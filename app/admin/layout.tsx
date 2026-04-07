@@ -15,6 +15,7 @@ export default function AdminLayout({
     { label: "Dashboard", href: "/admin" },
     { label: "Product Rules", href: "/admin/products" },
     { label: "Submissions", href: "/admin/submissions" },
+    { label: "Settings", href: "/admin/settings" },
   ];
 
   return (

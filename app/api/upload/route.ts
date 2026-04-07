@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/supabase";
+import { sendSubmissionNotification } from "@/lib/email";
 
 const BUCKET = "doc-verifications";
 
@@ -53,8 +54,10 @@ export async function POST(req: NextRequest) {
 
     // Simpan ke doc_submissions
     const shopValue = shop ?? "unknown";
+    const submissionId = crypto.randomUUID();
+
     const { error: dbError } = await db.from("doc_submissions").insert({
-      id: crypto.randomUUID(),
+      id: submissionId,
       shop: shopValue,
       order_id: "pending",
       order_name: "pending",
@@ -68,6 +71,30 @@ export async function POST(req: NextRequest) {
 
     if (dbError) {
       console.error("DB insert error:", dbError);
+    }
+
+    // ✅ Kirim email notification ke merchant
+    // Ambil merchant email dari settings
+    try {
+      const { data: shopSettings } = await db
+        .from("shop_settings")
+        .select("notification_email")
+        .eq("shop", shopValue)
+        .single();
+
+      const merchantEmail = shopSettings?.notification_email;
+      if (merchantEmail) {
+        await sendSubmissionNotification({
+          merchantEmail,
+          orderName: "pending",
+          customerEmail: customerEmail ?? "unknown",
+          fileName,
+          submissionId,
+          shop: shopValue,
+        });
+      }
+    } catch (emailErr) {
+      console.error("Email error:", emailErr);
     }
 
     return NextResponse.json(
