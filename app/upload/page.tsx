@@ -39,10 +39,15 @@ function UploadForm() {
           fileName: file.name,
           fileType: file.type,
           fileData: base64,
-          productIds: [],
+          productIds:
+            new URLSearchParams(window.location.search)
+              .get("productIds")
+              ?.split(",") ?? [],
           shop:
             new URLSearchParams(window.location.search).get("shop") ??
             "unknown",
+          customerEmail:
+            new URLSearchParams(window.location.search).get("email") ?? null,
         }),
       });
 

@@ -7,6 +7,7 @@ import {
   useCartLines,
   useAppMetafields,
   useBuyerJourneyIntercept,
+  useBuyer,
   BlockStack,
   Text,
   Button,
@@ -25,8 +26,8 @@ function DocUploadBlock() {
   const attributes = useAttributes();
   const { myshopifyDomain } = useShop();
   const cartLines = useCartLines();
+  const buyer = useBuyer();
 
-  // Baca metafield dari shop
   const metafields = useAppMetafields({
     type: "shop",
     namespace: "docverify",
@@ -45,17 +46,15 @@ function DocUploadBlock() {
     settings.helper_text || "Your file is securely stored with your order.";
   const buttonLabel = settings.button_label || "Upload document";
 
-  // Ambil restricted IDs dari metafield
   const metafieldValue = metafields?.[0]?.metafield?.value ?? "";
   const restrictedIds = metafieldValue
     .split(",")
     .map((id) => id.trim())
     .filter(Boolean);
 
-  // Cek apakah ada produk restricted di cart
   const hasRestricted =
     restrictedIds.length === 0
-      ? false // sembunyikan kalau metafield belum dikonfigurasi
+      ? false
       : cartLines.some((line) => {
           const productId = line.merchandise.product.id;
           const numericId = productId.startsWith("gid://")
@@ -66,6 +65,19 @@ function DocUploadBlock() {
             restrictedIds.includes(productId)
           );
         });
+
+  // Ambil product IDs yang restricted di cart
+  const restrictedProductIds = cartLines
+    .filter((line) => {
+      const productId = line.merchandise.product.id;
+      const numericId = productId.startsWith("gid://")
+        ? productId.split("/").pop()
+        : productId;
+      return (
+        restrictedIds.includes(numericId) || restrictedIds.includes(productId)
+      );
+    })
+    .map((line) => line.merchandise.product.id);
 
   useEffect(() => {
     const existing = attributes.find((a) => a.key === "_doc_uploaded");
@@ -126,6 +138,17 @@ function DocUploadBlock() {
     }
   };
 
+  // Build upload URL dengan customer email
+  const customerEmail = buyer?.email ?? "";
+  const uploadParams = new URLSearchParams({
+    shop: myshopifyDomain,
+    ...(customerEmail && { email: customerEmail }),
+    ...(restrictedProductIds.length > 0 && {
+      productIds: restrictedProductIds.join(","),
+    }),
+  });
+  const uploadUrl = `https://docverify-shopify.vercel.app/upload?${uploadParams.toString()}`;
+
   return (
     <BlockStack spacing="base">
       <Text size="medium" emphasis="bold">
@@ -146,11 +169,7 @@ function DocUploadBlock() {
         </Banner>
       ) : (
         <BlockStack spacing="tight">
-          <Button
-            kind="secondary"
-            to={`https://docverify-shopify.vercel.app/upload?shop=${myshopifyDomain}`}
-            target="_blank"
-          >
+          <Button kind="secondary" to={uploadUrl} target="_blank">
             {buttonLabel}
           </Button>
           <Text size="small" appearance="subdued">
