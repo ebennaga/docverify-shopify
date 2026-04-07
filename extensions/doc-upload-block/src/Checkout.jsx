@@ -7,7 +7,7 @@ import {
   useCartLines,
   useAppMetafields,
   useBuyerJourneyIntercept,
-  useBuyer,
+  useEmail,
   BlockStack,
   Text,
   Button,
@@ -26,7 +26,7 @@ function DocUploadBlock() {
   const attributes = useAttributes();
   const { myshopifyDomain } = useShop();
   const cartLines = useCartLines();
-  const buyer = useBuyer();
+  const email = useEmail();
 
   const metafields = useAppMetafields({
     type: "shop",
@@ -139,7 +139,7 @@ function DocUploadBlock() {
   };
 
   // Build upload URL dengan customer email
-  const customerEmail = buyer?.email ?? "";
+  const customerEmail = email ?? "";
   const uploadParams = new URLSearchParams({
     shop: myshopifyDomain,
     ...(customerEmail && { email: customerEmail }),
