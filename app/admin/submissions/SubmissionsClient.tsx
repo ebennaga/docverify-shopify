@@ -70,11 +70,68 @@ export default function SubmissionsClient({
     verified: "#10b981",
     rejected: "#ef4444",
   };
+  const stats = {
+    total: submissions.length,
+    pending: submissions.filter((s) => s.status === "pending").length,
+    verified: submissions.filter((s) => s.status === "verified").length,
+    rejected: submissions.filter((s) => s.status === "rejected").length,
+  };
 
+  const statCards = [
+    { label: "Total", value: stats.total, color: "#6b7280", bg: "#f9fafb" },
+    { label: "Pending", value: stats.pending, color: "#d97706", bg: "#fffbeb" },
+    {
+      label: "Verified",
+      value: stats.verified,
+      color: "#059669",
+      bg: "#ecfdf5",
+    },
+    {
+      label: "Rejected",
+      value: stats.rejected,
+      color: "#dc2626",
+      bg: "#fef2f2",
+    },
+  ];
   return (
     <div style={{ padding: "20px", fontFamily: "sans-serif" }}>
       <h1 style={{ marginBottom: "20px" }}>Document Submissions</h1>
 
+      {/* Stats Cards */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, 1fr)",
+          gap: "12px",
+          marginBottom: "24px",
+        }}
+      >
+        {statCards.map((card) => (
+          <div
+            key={card.label}
+            style={{
+              background: card.bg,
+              border: `1px solid ${card.color}20`,
+              borderRadius: "10px",
+              padding: "16px 20px",
+            }}
+          >
+            <p style={{ margin: 0, fontSize: "13px", color: "#6b7280" }}>
+              {card.label}
+            </p>
+            <p
+              style={{
+                margin: "4px 0 0",
+                fontSize: "28px",
+                fontWeight: 700,
+                color: card.color,
+              }}
+            >
+              {card.value}
+            </p>
+          </div>
+        ))}
+      </div>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr style={{ borderBottom: "2px solid #e5e7eb" }}>
