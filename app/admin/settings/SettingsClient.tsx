@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type Settings = {
   notification_email: string | null;
@@ -8,7 +8,7 @@ type Settings = {
 
 export default function SettingsClient({
   settings,
-  shop,
+  shop: shopProp,
 }: {
   settings: Settings | null;
   shop: string;
@@ -16,8 +16,20 @@ export default function SettingsClient({
   const [email, setEmail] = useState(settings?.notification_email ?? "");
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
+  const [shop, setShop] = useState(shopProp);
+
+  // Ambil shop dari URL di client side
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shopParam = params.get("shop");
+    if (shopParam) setShop(shopParam);
+  }, []);
 
   const handleSave = async () => {
+    if (!shop) {
+      setToast("Error: shop not found. Please reload the page.");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/settings", {
@@ -25,11 +37,14 @@ export default function SettingsClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ shop, notificationEmail: email }),
       });
-      if (!res.ok) throw new Error("Failed to save");
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to save");
+
       setToast("Settings saved!");
       setTimeout(() => setToast(""), 3000);
     } catch (err) {
-      setToast("Failed to save settings.");
+      setToast(`Failed: ${err}`);
     } finally {
       setSaving(false);
     }
@@ -48,8 +63,14 @@ export default function SettingsClient({
             padding: "10px 16px",
             marginBottom: "16px",
             borderRadius: "8px",
-            background: toast.startsWith("Failed") ? "#fee2e2" : "#dcfce7",
-            color: toast.startsWith("Failed") ? "#b91c1c" : "#16a34a",
+            background:
+              toast.startsWith("Failed") || toast.startsWith("Error")
+                ? "#fee2e2"
+                : "#dcfce7",
+            color:
+              toast.startsWith("Failed") || toast.startsWith("Error")
+                ? "#b91c1c"
+                : "#16a34a",
             fontSize: "14px",
           }}
         >
@@ -89,14 +110,14 @@ export default function SettingsClient({
 
       <button
         onClick={handleSave}
-        disabled={saving}
+        disabled={saving || !shop}
         style={{
           padding: "9px 20px",
           background: "#000",
           color: "white",
           border: "none",
           borderRadius: "6px",
-          cursor: saving ? "not-allowed" : "pointer",
+          cursor: saving || !shop ? "not-allowed" : "pointer",
           fontSize: "14px",
           fontWeight: 500,
         }}
