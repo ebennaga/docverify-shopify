@@ -11,7 +11,6 @@ export default async function AdminPage({
   const shop = params.shop ?? "";
   const host = params.host ?? "";
 
-  // Ambil stats
   const { data: submissions } = await db
     .from("doc_submissions")
     .select("status")
@@ -100,14 +99,7 @@ export default async function AdminPage({
               padding: "20px",
               textDecoration: "none",
               display: "block",
-              transition: "transform 0.1s",
             }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.transform = "translateY(-2px)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.transform = "translateY(0)")
-            }
           >
             <div style={{ fontSize: "24px", marginBottom: "8px" }}>
               {card.icon}
@@ -188,7 +180,7 @@ export default async function AdminPage({
         </div>
       </div>
 
-      {/* Summary */}
+      {/* Overview */}
       <div
         style={{
           background: "white",
