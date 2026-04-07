@@ -2,14 +2,13 @@
 
 import { AppProvider } from "@shopify/polaris";
 import enTranslations from "@shopify/polaris/locales/en.json";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function NavBar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const shop = searchParams.get("shop") ?? "";
 
   const navItems = [
     { label: "Dashboard", href: "/admin" },
@@ -19,41 +18,57 @@ export default function AdminLayout({
   ];
 
   return (
+    <nav
+      style={{
+        borderBottom: "1px solid #e5e7eb",
+        padding: "0 20px",
+        display: "flex",
+        gap: "4px",
+        background: "white",
+      }}
+    >
+      {navItems.map((item) => {
+        const active = pathname === item.href;
+        const href = shop ? `${item.href}?shop=${shop}` : item.href;
+        return (
+          <a
+            key={item.href}
+            href={href}
+            style={{
+              padding: "12px 16px",
+              fontSize: "14px",
+              fontWeight: active ? 600 : 400,
+              color: active ? "#000" : "#6b7280",
+              textDecoration: "none",
+              borderBottom: active ? "2px solid #000" : "2px solid transparent",
+              display: "inline-block",
+            }}
+          >
+            {item.label}
+          </a>
+        );
+      })}
+    </nav>
+  );
+}
+
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
     <AppProvider i18n={enTranslations}>
       <div style={{ minHeight: "100vh", fontFamily: "sans-serif" }}>
-        <nav
-          style={{
-            borderBottom: "1px solid #e5e7eb",
-            padding: "0 20px",
-            display: "flex",
-            gap: "4px",
-            background: "white",
-          }}
+        <Suspense
+          fallback={
+            <nav
+              style={{ borderBottom: "1px solid #e5e7eb", height: "45px" }}
+            />
+          }
         >
-          {navItems.map((item) => {
-            const active = pathname === item.href;
-            return (
-              <a
-                key={item.href}
-                href={item.href}
-                style={{
-                  padding: "12px 16px",
-                  fontSize: "14px",
-                  fontWeight: active ? 600 : 400,
-                  color: active ? "#000" : "#6b7280",
-                  textDecoration: "none",
-                  borderBottom: active
-                    ? "2px solid #000"
-                    : "2px solid transparent",
-                  display: "inline-block",
-                }}
-              >
-                {item.label}
-              </a>
-            );
-          })}
-        </nav>
-
+          <NavBar />
+        </Suspense>
         <div style={{ padding: "24px" }}>{children}</div>
       </div>
     </AppProvider>

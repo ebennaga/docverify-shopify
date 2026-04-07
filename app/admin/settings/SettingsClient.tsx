@@ -16,20 +16,16 @@ export default function SettingsClient({
   const [email, setEmail] = useState(settings?.notification_email ?? "");
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
+  const [shop, setShop] = useState(shopProp);
 
-  // Ambil shop — prioritaskan dari URL
-  const getShop = () => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      return params.get("shop") || shopProp || "";
-    }
-    return shopProp || "";
-  };
+  useEffect(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get("shop");
+    if (fromUrl) setShop(fromUrl);
+  }, []);
 
   const handleSave = async () => {
-    const shop = getShop();
     if (!shop) {
-      setToast("Error: shop not found.");
+      setToast("Error: shop not found. Coba reload halaman.");
       return;
     }
     setSaving(true);
@@ -110,12 +106,17 @@ export default function SettingsClient({
         </p>
       </div>
 
+      {/* Debug info — hapus setelah beres */}
+      <p style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "8px" }}>
+        Shop: {shop || "not detected"}
+      </p>
+
       <button
         onClick={handleSave}
         disabled={saving}
         style={{
           padding: "9px 20px",
-          background: "#000",
+          background: shop ? "#000" : "#9ca3af",
           color: "white",
           border: "none",
           borderRadius: "6px",
