@@ -16,18 +16,20 @@ export default function SettingsClient({
   const [email, setEmail] = useState(settings?.notification_email ?? "");
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
-  const [shop, setShop] = useState(shopProp);
 
-  // Ambil shop dari URL di client side
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const shopParam = params.get("shop");
-    if (shopParam) setShop(shopParam);
-  }, []);
+  // Ambil shop — prioritaskan dari URL
+  const getShop = () => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("shop") || shopProp || "";
+    }
+    return shopProp || "";
+  };
 
   const handleSave = async () => {
+    const shop = getShop();
     if (!shop) {
-      setToast("Error: shop not found. Please reload the page.");
+      setToast("Error: shop not found.");
       return;
     }
     setSaving(true);
@@ -110,14 +112,14 @@ export default function SettingsClient({
 
       <button
         onClick={handleSave}
-        disabled={saving || !shop}
+        disabled={saving}
         style={{
           padding: "9px 20px",
           background: "#000",
           color: "white",
           border: "none",
           borderRadius: "6px",
-          cursor: saving || !shop ? "not-allowed" : "pointer",
+          cursor: saving ? "not-allowed" : "pointer",
           fontSize: "14px",
           fontWeight: 500,
         }}
