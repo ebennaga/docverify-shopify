@@ -9,19 +9,15 @@ const PLANS: Record<string, { name: string; price: string }> = {
 export async function POST(req: NextRequest) {
   const { shop, plan } = await req.json();
 
-  console.log("[billing/subscribe] shop:", shop, "plan:", plan);
-
   if (!shop || !PLANS[plan]) {
     return NextResponse.json({ error: "Invalid shop or plan" }, { status: 400 });
   }
 
-  const { data: session, error: sessionError } = await db
+  const { data: session } = await db
     .from("Session")
     .select("access_token")
     .eq("shop", shop)
     .single();
-
-  console.log("[billing/subscribe] session:", session, "error:", sessionError);
 
   if (!session?.access_token) {
     return NextResponse.json({ error: "Shop not authenticated" }, { status: 401 });
@@ -30,45 +26,69 @@ export async function POST(req: NextRequest) {
   const { name, price } = PLANS[plan];
   const returnUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/billing/callback?shop=${shop}&plan=${plan}`;
 
-  console.log("[billing/subscribe] returnUrl:", returnUrl);
+  const query = `
+    mutation AppSubscriptionCreate($name: String!, $lineItems: [AppSubscriptionLineItemInput!]!, $returnUrl: URL!, $test: Boolean) {
+      appSubscriptionCreate(name: $name, lineItems: $lineItems, returnUrl: $returnUrl, test: $test) {
+        appSubscription {
+          id
+          status
+        }
+        confirmationUrl
+        userErrors {
+          field
+          message
+        }
+      }
+    }
+  `;
+
+  const variables = {
+    name,
+    returnUrl,
+    test: process.env.NODE_ENV !== "production",
+    lineItems: [
+      {
+        plan: {
+          appRecurringPricingDetails: {
+            price: { amount: price, currencyCode: "USD" },
+            interval: "EVERY_30_DAYS",
+          },
+        },
+      },
+    ],
+  };
 
   const response = await fetch(
-    `https://${shop}/admin/api/2024-01/recurring_application_charges.json`,
+    `https://${shop}/admin/api/2025-01/graphql.json`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "X-Shopify-Access-Token": session.access_token,
       },
-      body: JSON.stringify({
-        recurring_application_charge: {
-          name,
-          price,
-          return_url: returnUrl,
-          trial_days: 7,
-          test: true,
-        },
-      }),
+      body: JSON.stringify({ query, variables }),
     }
   );
 
   const data = await response.json();
-  console.log("[billing/subscribe] Shopify response status:", response.status);
-  console.log("[billing/subscribe] Shopify response data:", JSON.stringify(data));
+  console.log("[billing/subscribe] GraphQL response:", JSON.stringify(data));
 
-  if (!response.ok || !data.recurring_application_charge) {
-    return NextResponse.json({ error: "Failed to create charge", detail: data }, { status: 500 });
+  const result = data?.data?.appSubscriptionCreate;
+
+  if (!result || result.userErrors?.length > 0) {
+    console.error("GraphQL billing error:", result?.userErrors);
+    return NextResponse.json({ error: "Failed to create subscription", detail: result?.userErrors }, { status: 500 });
   }
 
-  const charge = data.recurring_application_charge;
+  const { appSubscription, confirmationUrl } = result;
 
   await db.from("subscriptions").upsert({
     shop,
     plan,
     status: "pending",
-    charge_id: String(charge.id),
+    charge_id: appSubscription.id,
     updated_at: new Date().toISOString(),
   });
 
-  return NextResponse.json({ confirmationUrl: charge.confirmation_url });
+  return NextResponse.json({ confirmationUrl });
 }
