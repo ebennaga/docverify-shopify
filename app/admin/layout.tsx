@@ -33,6 +33,7 @@ function NavBar() {
     { label: "Product Rules", href: "/admin/products" },
     { label: "Submissions", href: "/admin/submissions", badge: pendingCount },
     { label: "Settings", href: "/admin/settings" },
+    { label: "Billing", href: "/admin/billing" },
   ];
 
   return (

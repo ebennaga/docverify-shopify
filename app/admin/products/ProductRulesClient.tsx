@@ -159,7 +159,15 @@ export default function ProductRulesClient({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...form }),
         });
-        if (!res.ok) throw new Error((await res.json()).error ?? "Failed");
+        const resData = await res.json();
+        if (!res.ok) {
+          if (resData.error === "PLAN_LIMIT_EXCEEDED") {
+            showToast(resData.message, "error");
+            setTimeout(() => { window.location.href = `/admin/billing?shop=${shop}`; }, 2000);
+            return;
+          }
+          throw new Error(resData.error ?? "Failed");
+        }
         const data = await res.json();
         setRules((prev) =>
           prev.map((r) =>
@@ -187,7 +195,15 @@ export default function ProductRulesClient({
             ...form,
           }),
         });
-        if (!res.ok) throw new Error((await res.json()).error ?? "Failed");
+        const resData = await res.json();
+        if (!res.ok) {
+          if (resData.error === "PLAN_LIMIT_EXCEEDED") {
+            showToast(resData.message, "error");
+            setTimeout(() => { window.location.href = `/admin/billing?shop=${shop}`; }, 2000);
+            return;
+          }
+          throw new Error(resData.error ?? "Failed");
+        }
         const data = await res.json();
         setRules((prev) => [data, ...prev]);
         showToast("Rule saved successfully!");
