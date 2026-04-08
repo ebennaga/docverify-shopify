@@ -15,6 +15,7 @@ type Submission = {
   status: string;
   reviewer_note: string | null;
   created_at: string;
+  reviewed_at?: string | null;
 };
 
 const STATUS_CONFIG: Record<
@@ -126,7 +127,7 @@ export default function SubmissionsClient({
         s.customer_email ?? "",
         s.file_name,
         s.status,
-        new Date(s.created_at).toLocaleDateString("en-GB"),
+        new Date(s.reviewed_at ?? s.created_at).toLocaleDateString("en-GB"),
         s.reviewer_note ?? "",
       ]),
     ];
@@ -577,7 +578,7 @@ export default function SubmissionsClient({
                         color: "#6b7280",
                       }}
                     >
-                      {new Date(s.created_at).toLocaleDateString("en-GB", {
+                      {new Date(s.reviewed_at ?? s.created_at).toLocaleDateString("en-GB", {
                         day: "numeric",
                         month: "short",
                         year: "numeric",
