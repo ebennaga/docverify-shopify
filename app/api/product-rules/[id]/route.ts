@@ -27,7 +27,6 @@ async function syncRestrictedProducts(shop: string) {
 
     if (!session?.access_token) return;
 
-    // Ambil Shop ID yang benar dulu
     const shopRes = await fetch(
       `https://${shop}/admin/api/2025-01/graphql.json`,
       {
@@ -41,10 +40,8 @@ async function syncRestrictedProducts(shop: string) {
     );
     const shopData = await shopRes.json();
     const shopId = shopData?.data?.shop?.id;
-
     if (!shopId) return;
 
-    // Update metafield dengan Shop ID yang benar
     const metaRes = await fetch(
       `https://${shop}/admin/api/2025-01/graphql.json`,
       {
@@ -55,13 +52,13 @@ async function syncRestrictedProducts(shop: string) {
         },
         body: JSON.stringify({
           query: `
-          mutation SetMetafield($metafields: [MetafieldsSetInput!]!) {
-            metafieldsSet(metafields: $metafields) {
-              metafields { id key value }
-              userErrors { field message }
+            mutation SetMetafield($metafields: [MetafieldsSetInput!]!) {
+              metafieldsSet(metafields: $metafields) {
+                metafields { id key value }
+                userErrors { field message }
+              }
             }
-          }
-        `,
+          `,
           variables: {
             metafields: [
               {
@@ -76,7 +73,6 @@ async function syncRestrictedProducts(shop: string) {
         }),
       },
     );
-
     const metaData = await metaRes.json();
     console.log("Metafield sync result:", JSON.stringify(metaData));
   } catch (err) {
@@ -91,9 +87,19 @@ export async function PATCH(
   const { id } = await params;
   const body = await req.json();
 
+  // Build update object — support both toggle and full edit
+  const updateData: Record<string, unknown> = {};
+  if (body.isActive !== undefined) updateData.is_active = body.isActive;
+  if (body.docType !== undefined) updateData.doc_type = body.docType;
+  if (body.uploadTitle !== undefined)
+    updateData.upload_title = body.uploadTitle;
+  if (body.helperText !== undefined) updateData.helper_text = body.helperText;
+  if (body.errorMessage !== undefined)
+    updateData.error_message = body.errorMessage;
+
   const { data, error } = await db
     .from("product_rules")
-    .update({ is_active: body.isActive })
+    .update(updateData)
     .eq("id", id)
     .select()
     .single();
@@ -101,7 +107,6 @@ export async function PATCH(
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Sync metafield
   if (data?.shop) await syncRestrictedProducts(data.shop);
 
   return NextResponse.json(data);
