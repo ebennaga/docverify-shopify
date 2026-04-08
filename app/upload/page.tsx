@@ -13,13 +13,17 @@ function UploadForm() {
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchParams = useSearchParams();
+
   const returnUrl = searchParams.get("return") ?? "";
+  const isResubmit = searchParams.get("resubmit") === "true";
+  const submissionId = searchParams.get("submissionId") ?? "";
+  const rejectionNote = searchParams.get("note") ?? "";
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!email || !email.includes("@")) {
+    if (!isResubmit && (!email || !email.includes("@"))) {
       setError("Please enter your email address first.");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
@@ -42,6 +46,28 @@ function UploadForm() {
         reader.readAsDataURL(file);
       });
 
+      const params = new URLSearchParams(window.location.search);
+
+      // Resubmit: PATCH existing submission
+      if (isResubmit && submissionId) {
+        const res = await fetch(`/api/submissions/${submissionId}/resubmit`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: file.name,
+            fileType: file.type,
+            fileData: base64,
+          }),
+        });
+        if (!res.ok) throw new Error("Resubmit failed");
+        const data = await res.json();
+        setCode(data.filePath ?? submissionId);
+        setUploaded(true);
+        setUploading(false);
+        return;
+      }
+
+      // Normal upload
       const res = await fetch("/api/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -49,13 +75,8 @@ function UploadForm() {
           fileName: file.name,
           fileType: file.type,
           fileData: base64,
-          productIds:
-            new URLSearchParams(window.location.search)
-              .get("productIds")
-              ?.split(",") ?? [],
-          shop:
-            new URLSearchParams(window.location.search).get("shop") ??
-            "unknown",
+          productIds: params.get("productIds")?.split(",") ?? [],
+          shop: params.get("shop") ?? "unknown",
           customerEmail: email,
         }),
       });
@@ -71,7 +92,7 @@ function UploadForm() {
         setUploaded(true);
         setUploading(false);
       }
-    } catch (err) {
+    } catch {
       setError("Upload failed. Please try again.");
       setUploading(false);
     }
@@ -105,13 +126,13 @@ function UploadForm() {
           boxShadow: "0 4px 24px rgba(0,0,0,0.08)",
         }}
       >
-        {/* Logo/Header */}
-        <div style={{ textAlign: "center", marginBottom: "32px" }}>
+        {/* Header */}
+        <div style={{ textAlign: "center", marginBottom: "28px" }}>
           <div
             style={{
               width: "52px",
               height: "52px",
-              background: "#000",
+              background: isResubmit ? "#dc2626" : "#000",
               borderRadius: "14px",
               display: "flex",
               alignItems: "center",
@@ -120,7 +141,7 @@ function UploadForm() {
               fontSize: "24px",
             }}
           >
-            🔒
+            {isResubmit ? "🔄" : "🔒"}
           </div>
           <h1
             style={{
@@ -130,7 +151,7 @@ function UploadForm() {
               color: "#111",
             }}
           >
-            Document Verification
+            {isResubmit ? "Resubmit Document" : "Document Verification"}
           </h1>
           <p
             style={{
@@ -140,9 +161,47 @@ function UploadForm() {
               lineHeight: 1.5,
             }}
           >
-            Please upload your document to proceed with your purchase.
+            {isResubmit
+              ? "Your previous document was rejected. Please upload a new one."
+              : "Please upload your document to proceed with your purchase."}
           </p>
         </div>
+
+        {/* Rejection note banner — only for resubmit */}
+        {isResubmit && rejectionNote && (
+          <div
+            style={{
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
+              borderRadius: "10px",
+              padding: "14px 16px",
+              marginBottom: "24px",
+            }}
+          >
+            <p
+              style={{
+                margin: 0,
+                fontSize: "12px",
+                fontWeight: 600,
+                color: "#dc2626",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
+              Reason for rejection
+            </p>
+            <p
+              style={{
+                margin: "6px 0 0",
+                fontSize: "14px",
+                color: "#7f1d1d",
+                lineHeight: 1.5,
+              }}
+            >
+              {rejectionNote}
+            </p>
+          </div>
+        )}
 
         {uploaded ? (
           /* Success State */
@@ -166,7 +225,7 @@ function UploadForm() {
                   fontSize: "16px",
                 }}
               >
-                Upload successful!
+                {isResubmit ? "Resubmission successful!" : "Upload successful!"}
               </p>
               <p
                 style={{ color: "#6b7280", fontSize: "13px", marginTop: "4px" }}
@@ -175,103 +234,122 @@ function UploadForm() {
               </p>
             </div>
 
-            <p
-              style={{
-                fontSize: "14px",
-                color: "#374151",
-                marginBottom: "12px",
-                fontWeight: 500,
-              }}
-            >
-              Copy this code and paste it in checkout:
-            </p>
+            {!isResubmit && (
+              <>
+                <p
+                  style={{
+                    fontSize: "14px",
+                    color: "#374151",
+                    marginBottom: "12px",
+                    fontWeight: 500,
+                  }}
+                >
+                  Copy this code and paste it in checkout:
+                </p>
+                <div
+                  style={{
+                    background: "#f9fafb",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: "8px",
+                    padding: "12px 16px",
+                    fontFamily: "monospace",
+                    fontSize: "12px",
+                    wordBreak: "break-all",
+                    color: "#374151",
+                    marginBottom: "12px",
+                    lineHeight: 1.6,
+                  }}
+                >
+                  {code}
+                </div>
+                <button
+                  onClick={handleCopy}
+                  style={{
+                    width: "100%",
+                    padding: "14px",
+                    background: copied ? "#059669" : "#000",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "10px",
+                    fontSize: "15px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  {copied ? "✓ Copied!" : "Copy confirmation code"}
+                </button>
+                <p
+                  style={{
+                    fontSize: "12px",
+                    color: "#9ca3af",
+                    textAlign: "center",
+                    marginTop: "16px",
+                  }}
+                >
+                  Return to checkout and paste this code to continue.
+                </p>
+              </>
+            )}
 
-            <div
-              style={{
-                background: "#f9fafb",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                padding: "12px 16px",
-                fontFamily: "monospace",
-                fontSize: "12px",
-                wordBreak: "break-all",
-                color: "#374151",
-                marginBottom: "12px",
-                lineHeight: 1.6,
-              }}
-            >
-              {code}
-            </div>
-
-            <button
-              onClick={handleCopy}
-              style={{
-                width: "100%",
-                padding: "14px",
-                background: copied ? "#059669" : "#000",
-                color: "white",
-                border: "none",
-                borderRadius: "10px",
-                fontSize: "15px",
-                fontWeight: 600,
-                cursor: "pointer",
-                transition: "background 0.2s",
-              }}
-            >
-              {copied ? "✓ Copied!" : "Copy confirmation code"}
-            </button>
-
-            <p
-              style={{
-                fontSize: "12px",
-                color: "#9ca3af",
-                textAlign: "center",
-                marginTop: "16px",
-              }}
-            >
-              Return to checkout and paste this code to continue.
-            </p>
+            {isResubmit && (
+              <p
+                style={{
+                  fontSize: "14px",
+                  color: "#6b7280",
+                  textAlign: "center",
+                  lineHeight: 1.6,
+                }}
+              >
+                Our team will review your document and notify you via email once
+                it's verified.
+              </p>
+            )}
           </div>
         ) : (
           /* Upload Form */
           <div>
-            {/* Email */}
-            <div style={{ marginBottom: "20px" }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  marginBottom: "8px",
-                  color: "#374151",
-                }}
-              >
-                Email address
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                style={{
-                  width: "100%",
-                  padding: "12px 14px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "10px",
-                  fontSize: "14px",
-                  boxSizing: "border-box",
-                  outline: "none",
-                  color: "#111",
-                }}
-              />
-              <p
-                style={{ fontSize: "12px", color: "#9ca3af", marginTop: "6px" }}
-              >
-                We'll notify you when your document is reviewed.
-              </p>
-            </div>
+            {/* Email — only for non-resubmit */}
+            {!isResubmit && (
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    marginBottom: "8px",
+                    color: "#374151",
+                  }}
+                >
+                  Email address
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  style={{
+                    width: "100%",
+                    padding: "12px 14px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "10px",
+                    fontSize: "14px",
+                    boxSizing: "border-box",
+                    outline: "none",
+                    color: "#111",
+                  }}
+                />
+                <p
+                  style={{
+                    fontSize: "12px",
+                    color: "#9ca3af",
+                    marginTop: "6px",
+                  }}
+                >
+                  We'll notify you when your document is reviewed.
+                </p>
+              </div>
+            )}
 
-            {/* Upload Button */}
             <input
               ref={fileInputRef}
               type="file"
@@ -286,7 +364,11 @@ function UploadForm() {
               style={{
                 width: "100%",
                 padding: "14px",
-                background: uploading ? "#9ca3af" : "#000",
+                background: uploading
+                  ? "#9ca3af"
+                  : isResubmit
+                    ? "#dc2626"
+                    : "#000",
                 color: "white",
                 border: "none",
                 borderRadius: "10px",
@@ -296,11 +378,11 @@ function UploadForm() {
                 marginBottom: "12px",
               }}
             >
-              {uploading ? (
-                <span>⏳ Uploading...</span>
-              ) : (
-                <span>📎 Select file to upload</span>
-              )}
+              {uploading
+                ? "⏳ Uploading..."
+                : isResubmit
+                  ? "🔄 Upload new document"
+                  : "📎 Select file to upload"}
             </button>
 
             <p

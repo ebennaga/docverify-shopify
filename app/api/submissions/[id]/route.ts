@@ -44,6 +44,7 @@ export async function PATCH(
           fileName: file_name,
           reviewerNote: reviewer_note ?? "",
           shop,
+          submissionId: id, // ← tambah ini
         });
       }
     }

@@ -126,19 +126,25 @@ export async function sendVerifiedEmail({
 }
 
 // ✅ Email ke customer saat dokumen ditolak
+// ✅ Email ke customer saat dokumen ditolak
 export async function sendRejectedEmail({
   customerEmail,
   orderName,
   fileName,
   reviewerNote,
   shop,
+  submissionId,
 }: {
   customerEmail: string;
   orderName: string;
   fileName: string;
   reviewerNote?: string;
   shop: string;
+  submissionId: string;
 }) {
+  const noteEncoded = encodeURIComponent(reviewerNote ?? "");
+  const resubmitUrl = `https://docverify-shopify.vercel.app/upload?resubmit=true&submissionId=${submissionId}&note=${noteEncoded}&shop=${shop}`;
+
   await resend.emails.send({
     from: "DocVerify <onboarding@resend.dev>",
     to: customerEmail,
@@ -181,8 +187,12 @@ export async function sendRejectedEmail({
             : ""
         }
 
-        <p style="color: #374151; font-size: 14px;">
-          Please contact the store if you have any questions.
+        <a href="${resubmitUrl}" style="display: inline-block; background: #dc2626; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-size: 15px; font-weight: 600; margin-bottom: 16px;">
+          🔄 Resubmit Document →
+        </a>
+
+        <p style="color: #6b7280; font-size: 13px;">
+          Click the button above to upload a new document. The link will pre-fill the rejection reason for your reference.
         </p>
 
         <p style="color: #9ca3af; font-size: 12px; margin-top: 32px;">
