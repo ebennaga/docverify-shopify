@@ -18,35 +18,29 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Log raw response dari Shopify
-    const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        client_id: process.env.SHOPIFY_API_KEY,
-        client_secret: process.env.SHOPIFY_API_SECRET,
-        code,
-      }),
-    });
-    const tokenData = await res.json();
-    console.log("[auth/callback] raw token response:", JSON.stringify(tokenData));
-    console.log("[auth/callback] SHOPIFY_API_KEY starts with:", process.env.SHOPIFY_API_KEY?.slice(0, 8));
+    const tokenData = await getAccessToken(shop, code);
+    const { access_token, refresh_token, expires_in } = tokenData;
 
-    const accessToken = tokenData.access_token;
-
-    if (!accessToken) {
+    if (!access_token) {
       return NextResponse.json({ error: "No access token", detail: tokenData }, { status: 500 });
     }
+
+    const expires_at = expires_in
+      ? new Date(Date.now() + expires_in * 1000).toISOString()
+      : null;
 
     await db.from("Session").delete().eq("shop", shop);
     await db.from("Session").insert({
       id: `offline_${shop}`,
       shop,
       state: state ?? "",
-      access_token: accessToken,
+      access_token,
+      refresh_token: refresh_token ?? null,
       is_online: false,
-      expires_at: null,
+      expires_at,
     });
+
+    console.log("[auth/callback] saved token, expires_at:", expires_at);
 
     return NextResponse.redirect(
       `https://${shop}/admin/apps/${process.env.SHOPIFY_API_KEY}`,
