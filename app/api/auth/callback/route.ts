@@ -18,19 +18,27 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const accessToken = await getAccessToken(shop, code);
+    // Log raw response dari Shopify
+    const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client_id: process.env.SHOPIFY_API_KEY,
+        client_secret: process.env.SHOPIFY_API_SECRET,
+        code,
+      }),
+    });
+    const tokenData = await res.json();
+    console.log("[auth/callback] raw token response:", JSON.stringify(tokenData));
+    console.log("[auth/callback] SHOPIFY_API_KEY starts with:", process.env.SHOPIFY_API_KEY?.slice(0, 8));
+
+    const accessToken = tokenData.access_token;
 
     if (!accessToken) {
-      return NextResponse.json(
-        { error: "No access token returned" },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: "No access token", detail: tokenData }, { status: 500 });
     }
 
-    // Hapus semua session lama untuk shop ini
     await db.from("Session").delete().eq("shop", shop);
-
-    // Insert session baru dengan token
     await db.from("Session").insert({
       id: `offline_${shop}`,
       shop,
