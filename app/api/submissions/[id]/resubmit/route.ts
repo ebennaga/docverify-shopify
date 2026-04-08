@@ -17,7 +17,7 @@ export async function PATCH(
 
   // Get existing submission
   const { data: submission, error: fetchError } = await db
-    .from("submissions")
+    .from("doc_submissions")
     .select("*")
     .eq("id", id)
     .single();
@@ -44,7 +44,7 @@ export async function PATCH(
 
   // Update submission: reset to pending with new file
   const { error: updateError } = await db
-    .from("submissions")
+    .from("doc_submissions")
     .update({
       file_path: newPath,
       file_name: fileName,
