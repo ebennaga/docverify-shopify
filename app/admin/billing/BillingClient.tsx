@@ -64,6 +64,10 @@ export function BillingClient() {
         body: JSON.stringify({ shop, plan }),
       });
       const data = await res.json();
+      if (data.error === "REAUTH_REQUIRED" && data.authUrl) {
+        window.top!.location.href = data.authUrl;
+        return;
+      }
       if (data.confirmationUrl) {
         window.top!.location.href = data.confirmationUrl;
       } else {
