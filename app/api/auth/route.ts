@@ -18,8 +18,7 @@ export async function GET(request: NextRequest) {
     `?client_id=${process.env.SHOPIFY_API_KEY}` +
     `&scope=${scopes}` +
     `&redirect_uri=${redirectUri}` +
-    `&state=${state}` +
-    `&grant_options[]=offline`;
+    `&state=${state}`;
 
   return NextResponse.redirect(authUrl);
 }
