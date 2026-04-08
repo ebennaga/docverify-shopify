@@ -142,6 +142,15 @@ export default function ProductRulesClient({
       prev.map((r) => (r.id === id ? { ...r, is_active: !current } : r)),
     );
   }, []);
+  const handleDelete = useCallback(async (id: string, title: string) => {
+    if (!confirm(`Delete rule for "${title}"? This cannot be undone.`)) return;
+    const res = await fetch(`/api/product-rules/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setRules((prev) => prev.filter((r) => r.id !== id));
+      setToast({ msg: "Rule deleted.", type: "success" });
+      setTimeout(() => setToast(null), 3000);
+    }
+  }, []);
 
   const openModal = () => {
     setSelectedProduct(null);
@@ -360,21 +369,44 @@ export default function ProductRulesClient({
                     </span>
                   </td>
                   <td style={{ padding: "14px 16px" }}>
-                    <button
-                      onClick={() => handleToggle(r.id, r.is_active)}
-                      style={{
-                        padding: "6px 14px",
-                        cursor: "pointer",
-                        fontSize: "12px",
-                        fontWeight: 500,
-                        border: `1px solid ${r.is_active ? "#fca5a5" : "#d1d5db"}`,
-                        borderRadius: "6px",
-                        background: r.is_active ? "#fef2f2" : "white",
-                        color: r.is_active ? "#dc2626" : "#374151",
-                      }}
-                    >
-                      {r.is_active ? "Disable" : "Enable"}
-                    </button>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button
+                        onClick={() => handleToggle(r.id, r.is_active)}
+                        style={{
+                          padding: "6px 14px",
+                          cursor: "pointer",
+                          fontSize: "12px",
+                          fontWeight: 500,
+                          border: `1px solid ${r.is_active ? "#fca5a5" : "#d1d5db"}`,
+                          borderRadius: "6px",
+                          background: r.is_active ? "#fef2f2" : "white",
+                          color: r.is_active ? "#dc2626" : "#374151",
+                        }}
+                      >
+                        {r.is_active ? "Disable" : "Enable"}
+                      </button>
+                      <button
+                        onClick={() =>
+                          handleDelete(
+                            r.id,
+                            r.product_title ?? r.product_id ?? "this rule",
+                          )
+                        }
+                        style={{
+                          padding: "6px 10px",
+                          cursor: "pointer",
+                          fontSize: "12px",
+                          fontWeight: 500,
+                          border: "1px solid #e5e7eb",
+                          borderRadius: "6px",
+                          background: "white",
+                          color: "#9ca3af",
+                        }}
+                        title="Delete rule"
+                      >
+                        🗑
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
