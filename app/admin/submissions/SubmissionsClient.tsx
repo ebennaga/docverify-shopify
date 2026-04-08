@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 
 type Submission = {
   id: string;
@@ -37,7 +37,110 @@ export default function SubmissionsClient({
   const [loading, setLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [toast, setToast] = useState<{
+    msg: string;
+    type: "success" | "error";
+  } | null>(null);
 
+  const showToast = (msg: string, type: "success" | "error" = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // Filter + search
+  const filtered = useMemo(() => {
+    return submissions.filter((s) => {
+      const matchFilter = filter === "all" || s.status === filter;
+      const q = search.toLowerCase();
+      const matchSearch =
+        !q ||
+        (s.order_name ?? s.order_id).toLowerCase().includes(q) ||
+        (s.customer_email ?? "").toLowerCase().includes(q) ||
+        s.file_name.toLowerCase().includes(q);
+      return matchFilter && matchSearch;
+    });
+  }, [submissions, filter, search]);
+
+  // Select all in current view
+  const allSelected =
+    filtered.length > 0 && filtered.every((s) => selectedIds.has(s.id));
+  const someSelected = selectedIds.size > 0;
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map((s) => s.id)));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  // Bulk review
+  const handleBulkReview = async (status: "verified" | "rejected") => {
+    if (selectedIds.size === 0) return;
+    if (
+      !confirm(
+        `${status === "verified" ? "Verify" : "Reject"} ${selectedIds.size} submission(s)?`,
+      )
+    )
+      return;
+    setBulkLoading(true);
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map((id) =>
+          fetch(`/api/submissions/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status, reviewer_note: "" }),
+          }),
+        ),
+      );
+      setSubmissions((prev) =>
+        prev.map((s) => (selectedIds.has(s.id) ? { ...s, status } : s)),
+      );
+      setSelectedIds(new Set());
+      showToast(`${selectedIds.size} submission(s) ${status}.`);
+    } catch {
+      showToast("Bulk action failed.", "error");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  // Export CSV
+  const handleExportCSV = () => {
+    const rows = [
+      ["Order", "Customer", "File", "Status", "Date", "Reviewer Note"],
+      ...filtered.map((s) => [
+        s.order_name ?? s.order_id,
+        s.customer_email ?? "",
+        s.file_name,
+        s.status,
+        new Date(s.created_at).toLocaleDateString("en-GB"),
+        s.reviewer_note ?? "",
+      ]),
+    ];
+    const csv = rows.map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `submissions-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Single review modal
   const handlePreview = useCallback(async (sub: Submission) => {
     setSelected(sub);
     setNote(sub.reviewer_note ?? "");
@@ -66,6 +169,7 @@ export default function SubmissionsClient({
             ),
           );
           setSelected(null);
+          showToast(`Submission ${status}.`);
         }
       } finally {
         setLoading(false);
@@ -112,38 +216,95 @@ export default function SubmissionsClient({
     },
   ];
 
-  const filtered =
-    filter === "all"
-      ? submissions
-      : submissions.filter((s) => s.status === filter);
-
   return (
     <div
       style={{ padding: "24px", fontFamily: "sans-serif", maxWidth: "1100px" }}
     >
+      {/* Toast */}
+      {toast && (
+        <div
+          style={{
+            padding: "12px 16px",
+            marginBottom: "20px",
+            borderRadius: "10px",
+            background: toast.type === "error" ? "#fef2f2" : "#f0fdf4",
+            border: `1px solid ${toast.type === "error" ? "#fecaca" : "#bbf7d0"}`,
+            color: toast.type === "error" ? "#b91c1c" : "#15803d",
+            fontSize: "14px",
+            display: "flex",
+            justifyContent: "space-between",
+          }}
+        >
+          <span>
+            {toast.type === "success" ? "✅" : "⚠️"} {toast.msg}
+          </span>
+          <button
+            onClick={() => setToast(null)}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "#9ca3af",
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Header */}
-      <div style={{ marginBottom: "24px" }}>
-        <h1 style={{ fontSize: "22px", fontWeight: 700, margin: 0 }}>
-          Document Submissions
-        </h1>
-        <p style={{ color: "#6b7280", fontSize: "14px", marginTop: "6px" }}>
-          Review and manage customer document uploads.
-        </p>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          marginBottom: "24px",
+        }}
+      >
+        <div>
+          <h1 style={{ fontSize: "22px", fontWeight: 700, margin: 0 }}>
+            Document Submissions
+          </h1>
+          <p style={{ color: "#6b7280", fontSize: "14px", marginTop: "6px" }}>
+            Review and manage customer document uploads.
+          </p>
+        </div>
+        <button
+          onClick={handleExportCSV}
+          style={{
+            padding: "9px 18px",
+            cursor: "pointer",
+            border: "1px solid #d1d5db",
+            borderRadius: "8px",
+            background: "white",
+            fontSize: "13px",
+            fontWeight: 500,
+            color: "#374151",
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+          }}
+        >
+          ⬇️ Export CSV
+        </button>
       </div>
 
-      {/* Stats Cards — clickable as filter */}
+      {/* Stats Cards */}
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(4, 1fr)",
           gap: "12px",
-          marginBottom: "24px",
+          marginBottom: "20px",
         }}
       >
         {statCards.map((card) => (
           <button
             key={card.label}
-            onClick={() => setFilter(card.key)}
+            onClick={() => {
+              setFilter(card.key);
+              setSelectedIds(new Set());
+            }}
             style={{
               background: card.bg,
               border: `2px solid ${filter === card.key ? card.color : `${card.color}20`}`,
@@ -151,7 +312,6 @@ export default function SubmissionsClient({
               padding: "16px 20px",
               textAlign: "left",
               cursor: "pointer",
-              transition: "border-color 0.15s",
             }}
           >
             <p style={{ margin: 0, fontSize: "13px", color: "#6b7280" }}>
@@ -171,6 +331,94 @@ export default function SubmissionsClient({
         ))}
       </div>
 
+      {/* Search + Bulk Actions Bar */}
+      <div
+        style={{
+          display: "flex",
+          gap: "10px",
+          marginBottom: "16px",
+          alignItems: "center",
+        }}
+      >
+        <input
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setSelectedIds(new Set());
+          }}
+          placeholder="🔍 Search by order, email, or file name..."
+          style={{
+            flex: 1,
+            padding: "10px 14px",
+            border: "1px solid #d1d5db",
+            borderRadius: "8px",
+            fontSize: "14px",
+            outline: "none",
+          }}
+        />
+        {someSelected && (
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <span
+              style={{
+                fontSize: "13px",
+                color: "#6b7280",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {selectedIds.size} selected
+            </span>
+            <button
+              onClick={() => handleBulkReview("verified")}
+              disabled={bulkLoading}
+              style={{
+                padding: "9px 16px",
+                cursor: "pointer",
+                background: "#059669",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                fontSize: "13px",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+            >
+              ✅ Verify all
+            </button>
+            <button
+              onClick={() => handleBulkReview("rejected")}
+              disabled={bulkLoading}
+              style={{
+                padding: "9px 16px",
+                cursor: "pointer",
+                background: "#fef2f2",
+                color: "#b91c1c",
+                border: "1px solid #fca5a5",
+                borderRadius: "8px",
+                fontSize: "13px",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+            >
+              ❌ Reject all
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              style={{
+                padding: "9px 12px",
+                cursor: "pointer",
+                border: "1px solid #e5e7eb",
+                borderRadius: "8px",
+                background: "white",
+                fontSize: "13px",
+                color: "#6b7280",
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Table */}
       {filtered.length === 0 ? (
         <div
@@ -184,12 +432,14 @@ export default function SubmissionsClient({
         >
           <div style={{ fontSize: "36px", marginBottom: "12px" }}>📭</div>
           <p style={{ fontWeight: 600, fontSize: "16px", margin: "0 0 6px" }}>
-            No submissions
+            No submissions found
           </p>
           <p style={{ color: "#6b7280", fontSize: "14px" }}>
-            {filter === "all"
-              ? "No documents have been submitted yet."
-              : `No ${filter} submissions.`}
+            {search
+              ? `No results for "${search}"`
+              : filter === "all"
+                ? "No documents submitted yet."
+                : `No ${filter} submissions.`}
           </p>
         </div>
       ) : (
@@ -209,6 +459,15 @@ export default function SubmissionsClient({
                   borderBottom: "1px solid #e5e7eb",
                 }}
               >
+                {/* Checkbox all */}
+                <th style={{ padding: "12px 16px", width: "40px" }}>
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleSelectAll}
+                    style={{ cursor: "pointer", width: "16px", height: "16px" }}
+                  />
+                </th>
                 {["Order", "Customer", "File", "Status", "Date", "Action"].map(
                   (h) => (
                     <th
@@ -232,14 +491,28 @@ export default function SubmissionsClient({
             <tbody>
               {filtered.map((s, i) => {
                 const st = STATUS_CONFIG[s.status] ?? STATUS_CONFIG.pending;
+                const isChecked = selectedIds.has(s.id);
                 return (
                   <tr
                     key={s.id}
                     style={{
                       borderBottom:
                         i < filtered.length - 1 ? "1px solid #f3f4f6" : "none",
+                      background: isChecked ? "#f0fdf4" : "white",
                     }}
                   >
+                    <td style={{ padding: "14px 16px" }}>
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleSelect(s.id)}
+                        style={{
+                          cursor: "pointer",
+                          width: "16px",
+                          height: "16px",
+                        }}
+                      />
+                    </td>
                     <td style={{ padding: "14px 16px" }}>
                       <span style={{ fontWeight: 600, fontSize: "14px" }}>
                         {s.order_name ?? s.order_id}
@@ -321,7 +594,6 @@ export default function SubmissionsClient({
                           cursor: "pointer",
                           fontSize: "13px",
                           fontWeight: 500,
-                          color: "#374151",
                         }}
                       >
                         Review →
@@ -359,7 +631,6 @@ export default function SubmissionsClient({
               boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
             }}
           >
-            {/* Modal header */}
             <div
               style={{
                 padding: "20px 24px",
@@ -399,7 +670,6 @@ export default function SubmissionsClient({
             </div>
 
             <div style={{ padding: "24px" }}>
-              {/* Current status badge */}
               {(() => {
                 const st =
                   STATUS_CONFIG[selected.status] ?? STATUS_CONFIG.pending;
@@ -421,7 +691,6 @@ export default function SubmissionsClient({
                 );
               })()}
 
-              {/* File Preview */}
               <div
                 style={{
                   border: "1px solid #e5e7eb",
@@ -478,10 +747,9 @@ export default function SubmissionsClient({
                   textDecoration: "none",
                 }}
               >
-                📎 Open full file in new tab ↗
+                📎 Open full file ↗
               </a>
 
-              {/* Reviewer note */}
               <div style={{ marginBottom: "20px" }}>
                 <label
                   style={{
@@ -516,7 +784,6 @@ export default function SubmissionsClient({
                 />
               </div>
 
-              {/* Actions */}
               <div
                 style={{
                   display: "flex",
@@ -534,7 +801,6 @@ export default function SubmissionsClient({
                     background: "white",
                     fontSize: "14px",
                     fontWeight: 500,
-                    color: "#374151",
                   }}
                 >
                   Cancel
