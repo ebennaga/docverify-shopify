@@ -12,8 +12,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  console.log("[resubmit] id:", id);
   const body = await req.json();
   const { fileName, fileType, fileData } = body;
+  console.log("[resubmit] fileName:", fileName, "fileType:", fileType);
 
   // Get existing submission
   const { data: submission, error: fetchError } = await db
@@ -21,7 +23,7 @@ export async function PATCH(
     .select("*")
     .eq("id", id)
     .single();
-
+  console.log("[resubmit] submission:", submission, "fetchError:", fetchError);
   if (fetchError || !submission) {
     return NextResponse.json(
       { error: "Submission not found" },
@@ -33,10 +35,13 @@ export async function PATCH(
   const buffer = Buffer.from(fileData, "base64");
   const ext = fileName.split(".").pop();
   const newPath = `${submission.shop}/${Date.now()}-resubmit.${ext}`;
+  console.log("[resubmit] uploading to path:", newPath);
 
   const { error: uploadError } = await supabaseAdmin.storage
     .from("documents")
     .upload(newPath, buffer, { contentType: fileType, upsert: false });
+
+  console.log("[resubmit] uploadError:", uploadError);
 
   if (uploadError) {
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
@@ -53,7 +58,7 @@ export async function PATCH(
       reviewer_note: null,
     })
     .eq("id", id);
-
+  console.log("[resubmit] updateError:", updateError);
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
