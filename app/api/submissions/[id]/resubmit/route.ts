@@ -38,7 +38,7 @@ export async function PATCH(
   console.log("[resubmit] uploading to path:", newPath);
 
   const { error: uploadError } = await supabaseAdmin.storage
-    .from("documents")
+    .from("doc-verifications")
     .upload(newPath, buffer, { contentType: fileType, upsert: false });
 
   console.log("[resubmit] uploadError:", uploadError);
