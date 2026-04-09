@@ -39,3 +39,9 @@ export function validateHmac(params: URLSearchParams): boolean {
     .digest("hex");
   return digest === hmac;
 }
+
+export function getAuthUrl(shop: string, state: string): string {
+  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`;
+  const scopes = process.env.SHOPIFY_SCOPES!;
+  return `https://${shop}/admin/oauth/authorize?client_id=${process.env.SHOPIFY_API_KEY}&scope=${scopes}&redirect_uri=${redirectUri}&state=${state}`;
+}
