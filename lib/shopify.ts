@@ -5,16 +5,19 @@ export const shopifyConfig = {
   appUrl: process.env.SHOPIFY_APP_URL!,
 };
 
-export async function getAccessToken(shop: string, code: string): Promise<{ access_token: string; refresh_token?: string; expires_in?: number }> {
+export async function getAccessToken(shop: string, code: string) {
+  // Pakai form-urlencoded bukan JSON, dan tambah expiring=1
+  const body = new URLSearchParams({
+    client_id: process.env.SHOPIFY_API_KEY!,
+    client_secret: process.env.SHOPIFY_API_SECRET!,
+    code,
+    expiring: "1",
+  });
+
   const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      client_id: process.env.SHOPIFY_API_KEY,
-      client_secret: process.env.SHOPIFY_API_SECRET,
-      code,
-      expiring: "1",
-    }),
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
   });
   const data = await res.json();
   console.log("[getAccessToken] full response:", JSON.stringify(data));
