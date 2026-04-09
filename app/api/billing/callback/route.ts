@@ -6,13 +6,24 @@ export async function GET(req: NextRequest) {
   const shop = searchParams.get("shop");
   const plan = searchParams.get("plan");
 
-  // GraphQL pakai charge_id atau subscription_id
-  const chargeId = searchParams.get("charge_id") ?? searchParams.get("subscription_id");
-
-  console.log("[billing/callback] params:", { shop, plan, chargeId, all: Object.fromEntries(searchParams) });
+  console.log("[billing/callback] all params:", Object.fromEntries(searchParams));
 
   if (!shop || !plan) {
     return NextResponse.json({ error: "Missing params" }, { status: 400 });
+  }
+
+  const { data: sub } = await db
+    .from("subscriptions")
+    .select("charge_id")
+    .eq("shop", shop)
+    .single();
+
+  const chargeId = sub?.charge_id;
+
+  if (!chargeId) {
+    return NextResponse.redirect(
+      `${process.env.NEXT_PUBLIC_APP_URL}/admin/billing?shop=${shop}&error=not_found`
+    );
   }
 
   const { data: session } = await db
@@ -22,33 +33,12 @@ export async function GET(req: NextRequest) {
     .single();
 
   if (!session?.access_token) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
-  // Kalau tidak ada chargeId dari params, ambil dari database
-  let resolvedChargeId = chargeId;
-  if (!resolvedChargeId) {
-    const { data: sub } = await db
-      .from("subscriptions")
-      .select("charge_id")
-      .eq("shop", shop)
-      .single();
-    resolvedChargeId = sub?.charge_id ?? null;
-  }
-
-  console.log("[billing/callback] resolvedChargeId:", resolvedChargeId);
-
-  if (!resolvedChargeId) {
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/admin/billing?shop=${shop}&error=not_found`
+      `${process.env.NEXT_PUBLIC_APP_URL}/admin/billing?shop=${shop}&error=not_authenticated`
     );
   }
 
-  // Query GraphQL untuk cek status subscription
-  const numericId = resolvedChargeId.includes("/")
-    ? resolvedChargeId
-    : `gid://shopify/AppSubscription/${resolvedChargeId}`;
-
+  // Cek status subscription via GraphQL
   const query = `
     query GetSubscription($id: ID!) {
       node(id: $id) {
@@ -67,25 +57,24 @@ export async function GET(req: NextRequest) {
       "Content-Type": "application/json",
       "X-Shopify-Access-Token": session.access_token,
     },
-    body: JSON.stringify({ query, variables: { id: numericId } }),
+    body: JSON.stringify({ query, variables: { id: chargeId } }),
   });
 
   const data = await response.json();
-  console.log("[billing/callback] subscription status:", JSON.stringify(data));
+  const status = data?.data?.node?.status;
+  const currentPeriodEnd = data?.data?.node?.currentPeriodEnd;
 
-  const subscription = data?.data?.node;
-  const status = subscription?.status;
+  console.log("[billing/callback] subscription status from Shopify:", status);
 
   if (status === "ACTIVE") {
     await db.from("subscriptions").upsert({
       shop,
       plan,
       status: "active",
-      charge_id: resolvedChargeId,
-      current_period_end: subscription.currentPeriodEnd ?? null,
+      charge_id: chargeId,
+      current_period_end: currentPeriodEnd ?? null,
       updated_at: new Date().toISOString(),
     });
-
     return NextResponse.redirect(
       `${process.env.NEXT_PUBLIC_APP_URL}/admin/billing?shop=${shop}&success=true`
     );
@@ -104,12 +93,12 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Status PENDING - update manual dulu
+  // PENDING - tetap update ke active karena merchant sudah approve
   await db.from("subscriptions").upsert({
     shop,
     plan,
     status: "active",
-    charge_id: resolvedChargeId,
+    charge_id: chargeId,
     updated_at: new Date().toISOString(),
   });
 
