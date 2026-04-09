@@ -25,7 +25,6 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Pakai charge_id dari params, konversi ke GID format
   const chargeId = chargeIdParam
     ? `gid://shopify/AppSubscription/${chargeIdParam}`
     : null;
@@ -36,7 +35,6 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Cek status subscription via GraphQL
   const query = `
     query GetSubscription($id: ID!) {
       node(id: $id) {
@@ -65,14 +63,18 @@ export async function GET(req: NextRequest) {
   console.log("[billing/callback] subscription status from Shopify:", status);
 
   if (status === "ACTIVE") {
-    await db.from("subscriptions").upsert({
+    const { error: upsertError } = await db.from("subscriptions").upsert({
       shop,
       plan,
       status: "active",
       charge_id: chargeId,
       current_period_end: currentPeriodEnd ?? null,
       updated_at: new Date().toISOString(),
-    });
+    }, { onConflict: "shop" });
+
+    console.log("[billing/callback] upsert error:", upsertError);
+    console.log("[billing/callback] saved plan:", plan);
+
     return NextResponse.redirect(
       `${process.env.NEXT_PUBLIC_APP_URL}/admin/billing?shop=${shop}&success=true`
     );
@@ -85,20 +87,19 @@ export async function GET(req: NextRequest) {
       status: "active",
       charge_id: null,
       updated_at: new Date().toISOString(),
-    });
+    }, { onConflict: "shop" });
     return NextResponse.redirect(
       `${process.env.NEXT_PUBLIC_APP_URL}/admin/billing?shop=${shop}&error=declined`
     );
   }
 
-  // PENDING - update ke active karena merchant sudah approve
   await db.from("subscriptions").upsert({
     shop,
     plan,
     status: "active",
     charge_id: chargeId,
     updated_at: new Date().toISOString(),
-  });
+  }, { onConflict: "shop" });
 
   return NextResponse.redirect(
     `${process.env.NEXT_PUBLIC_APP_URL}/admin/billing?shop=${shop}&success=true`
