@@ -69,7 +69,7 @@ export function BillingClient() {
         return;
       }
       if (data.confirmationUrl) {
-        window.top!.location.href = data.confirmationUrl;
+        window.location.href = data.confirmationUrl;
       } else {
         alert("Failed to start subscription. Please try again.");
       }
