@@ -6,7 +6,6 @@ export const shopifyConfig = {
 };
 
 export async function getAccessToken(shop: string, code: string) {
-  // Pakai form-urlencoded bukan JSON, dan tambah expiring=1
   const body = new URLSearchParams({
     client_id: process.env.SHOPIFY_API_KEY!,
     client_secret: process.env.SHOPIFY_API_SECRET!,
@@ -21,6 +20,24 @@ export async function getAccessToken(shop: string, code: string) {
   });
   const data = await res.json();
   console.log("[getAccessToken] full response:", JSON.stringify(data));
+  return data;
+}
+
+export async function refreshAccessToken(shop: string, refreshToken: string) {
+  const body = new URLSearchParams({
+    client_id: process.env.SHOPIFY_API_KEY!,
+    client_secret: process.env.SHOPIFY_API_SECRET!,
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+  });
+
+  const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+  const data = await res.json();
+  console.log("[refreshAccessToken] response:", JSON.stringify(data));
   return data;
 }
 

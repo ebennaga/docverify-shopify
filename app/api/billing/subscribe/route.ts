@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/supabase";
+import { getValidAccessToken } from "@/lib/session";
 
 const PLANS: Record<string, { name: string; price: string }> = {
   basic: { name: "DocVerify Basic", price: "9.00" },
@@ -13,14 +14,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid shop or plan" }, { status: 400 });
   }
 
-  const { data: session } = await db
-    .from("Session")
-    .select("access_token")
-    .eq("shop", shop)
-    .single();
-
-  if (!session?.access_token) {
-    return NextResponse.json({ 
+  const accessToken = await getValidAccessToken(shop);
+  if (!accessToken) {
+    return NextResponse.json({
       error: "REAUTH_REQUIRED",
       authUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth?shop=${shop}`
     }, { status: 401 });
@@ -57,7 +53,7 @@ export async function POST(req: NextRequest) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Shopify-Access-Token": session.access_token,
+      "X-Shopify-Access-Token": accessToken,
     },
     body: JSON.stringify({ query, variables }),
   });
@@ -66,7 +62,6 @@ export async function POST(req: NextRequest) {
   console.log("[billing/subscribe] status:", response.status);
   console.log("[billing/subscribe] response:", JSON.stringify(data));
 
-  // Token expired - return reauth URL ke client
   if (response.status === 401 || response.status === 403) {
     return NextResponse.json({
       error: "REAUTH_REQUIRED",
