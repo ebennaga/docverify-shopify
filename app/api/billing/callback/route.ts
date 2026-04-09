@@ -5,25 +5,12 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const shop = searchParams.get("shop");
   const plan = searchParams.get("plan");
+  const chargeIdParam = searchParams.get("charge_id");
 
   console.log("[billing/callback] all params:", Object.fromEntries(searchParams));
 
   if (!shop || !plan) {
     return NextResponse.json({ error: "Missing params" }, { status: 400 });
-  }
-
-  const { data: sub } = await db
-    .from("subscriptions")
-    .select("charge_id")
-    .eq("shop", shop)
-    .single();
-
-  const chargeId = sub?.charge_id;
-
-  if (!chargeId) {
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/admin/billing?shop=${shop}&error=not_found`
-    );
   }
 
   const { data: session } = await db
@@ -35,6 +22,17 @@ export async function GET(req: NextRequest) {
   if (!session?.access_token) {
     return NextResponse.redirect(
       `${process.env.NEXT_PUBLIC_APP_URL}/admin/billing?shop=${shop}&error=not_authenticated`
+    );
+  }
+
+  // Pakai charge_id dari params, konversi ke GID format
+  const chargeId = chargeIdParam
+    ? `gid://shopify/AppSubscription/${chargeIdParam}`
+    : null;
+
+  if (!chargeId) {
+    return NextResponse.redirect(
+      `${process.env.NEXT_PUBLIC_APP_URL}/admin/billing?shop=${shop}&error=not_found`
     );
   }
 
@@ -93,7 +91,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // PENDING - tetap update ke active karena merchant sudah approve
+  // PENDING - update ke active karena merchant sudah approve
   await db.from("subscriptions").upsert({
     shop,
     plan,
