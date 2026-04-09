@@ -5,9 +5,13 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const shop = searchParams.get("shop");
   const plan = searchParams.get("plan");
-  const chargeId = searchParams.get("charge_id");
 
-  if (!shop || !plan || !chargeId) {
+  // GraphQL pakai charge_id atau subscription_id
+  const chargeId = searchParams.get("charge_id") ?? searchParams.get("subscription_id");
+
+  console.log("[billing/callback] params:", { shop, plan, chargeId, all: Object.fromEntries(searchParams) });
+
+  if (!shop || !plan) {
     return NextResponse.json({ error: "Missing params" }, { status: 400 });
   }
 
@@ -21,48 +25,73 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const response = await fetch(
-    `https://${shop}/admin/api/2024-01/recurring_application_charges/${chargeId}.json`,
-    {
-      headers: { "X-Shopify-Access-Token": session.access_token },
-    },
-  );
+  // Kalau tidak ada chargeId dari params, ambil dari database
+  let resolvedChargeId = chargeId;
+  if (!resolvedChargeId) {
+    const { data: sub } = await db
+      .from("subscriptions")
+      .select("charge_id")
+      .eq("shop", shop)
+      .single();
+    resolvedChargeId = sub?.charge_id ?? null;
+  }
 
-  const data = await response.json();
-  const charge = data.recurring_application_charge;
+  console.log("[billing/callback] resolvedChargeId:", resolvedChargeId);
 
-  if (!charge) {
+  if (!resolvedChargeId) {
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/admin/billing?shop=${shop}&error=not_found`,
+      `${process.env.NEXT_PUBLIC_APP_URL}/admin/billing?shop=${shop}&error=not_found`
     );
   }
 
-  if (charge.status === "accepted") {
-    await fetch(
-      `https://${shop}/admin/api/2024-01/recurring_application_charges/${chargeId}/activate.json`,
-      {
-        method: "POST",
-        headers: { "X-Shopify-Access-Token": session.access_token },
-      },
-    );
+  // Query GraphQL untuk cek status subscription
+  const numericId = resolvedChargeId.includes("/")
+    ? resolvedChargeId
+    : `gid://shopify/AppSubscription/${resolvedChargeId}`;
 
+  const query = `
+    query GetSubscription($id: ID!) {
+      node(id: $id) {
+        ... on AppSubscription {
+          id
+          status
+          currentPeriodEnd
+        }
+      }
+    }
+  `;
+
+  const response = await fetch(`https://${shop}/admin/api/2025-01/graphql.json`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Shopify-Access-Token": session.access_token,
+    },
+    body: JSON.stringify({ query, variables: { id: numericId } }),
+  });
+
+  const data = await response.json();
+  console.log("[billing/callback] subscription status:", JSON.stringify(data));
+
+  const subscription = data?.data?.node;
+  const status = subscription?.status;
+
+  if (status === "ACTIVE") {
     await db.from("subscriptions").upsert({
       shop,
       plan,
       status: "active",
-      charge_id: chargeId,
-      current_period_end: new Date(
-        Date.now() + 30 * 24 * 60 * 60 * 1000,
-      ).toISOString(),
+      charge_id: resolvedChargeId,
+      current_period_end: subscription.currentPeriodEnd ?? null,
       updated_at: new Date().toISOString(),
     });
 
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/admin/billing?shop=${shop}&success=true`,
+      `${process.env.NEXT_PUBLIC_APP_URL}/admin/billing?shop=${shop}&success=true`
     );
   }
 
-  if (charge.status === "declined") {
+  if (status === "DECLINED" || status === "EXPIRED") {
     await db.from("subscriptions").upsert({
       shop,
       plan: "free",
@@ -71,11 +100,20 @@ export async function GET(req: NextRequest) {
       updated_at: new Date().toISOString(),
     });
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/admin/billing?shop=${shop}&error=declined`,
+      `${process.env.NEXT_PUBLIC_APP_URL}/admin/billing?shop=${shop}&error=declined`
     );
   }
 
+  // Status PENDING - update manual dulu
+  await db.from("subscriptions").upsert({
+    shop,
+    plan,
+    status: "active",
+    charge_id: resolvedChargeId,
+    updated_at: new Date().toISOString(),
+  });
+
   return NextResponse.redirect(
-    `${process.env.NEXT_PUBLIC_APP_URL}/admin/billing?shop=${shop}`,
+    `${process.env.NEXT_PUBLIC_APP_URL}/admin/billing?shop=${shop}&success=true`
   );
 }
