@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
     console.log("[billing/callback] saved plan:", plan);
 
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/admin/billing?shop=${shop}&success=true`
+      `https://${shop}/admin/apps/${process.env.SHOPIFY_API_KEY}/admin/billing?shop=${shop}&success=true`
     );
   }
 
@@ -102,6 +102,6 @@ export async function GET(req: NextRequest) {
   }, { onConflict: "shop" });
 
   return NextResponse.redirect(
-    `${process.env.NEXT_PUBLIC_APP_URL}/admin/billing?shop=${shop}&success=true`
+    `https://${shop}/admin/apps/${process.env.SHOPIFY_API_KEY}/admin/billing?shop=${shop}&success=true`
   );
 }
